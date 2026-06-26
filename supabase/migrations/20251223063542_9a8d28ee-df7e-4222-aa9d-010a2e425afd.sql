@@ -1,0 +1,1 @@
+ALTER TYPE home_type ADD VALUE 'special_children';

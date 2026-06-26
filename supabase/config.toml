@@ -1,0 +1,40 @@
+project_id = "gdoofdbdxzhtkejlcbxe"
+
+[functions.seed-demo-users]
+verify_jwt = false
+
+[functions.seed-demo-donors]
+verify_jwt = false
+
+[functions.check-payment-reminders]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.reset-user-password]
+verify_jwt = true
+
+[functions.bulk-upload-donors]
+verify_jwt = false
+
+[functions.delete-donor]
+verify_jwt = false
+
+[functions.impersonate-home]
+verify_jwt = false
+
+[functions.create-razorpay-order]
+verify_jwt = false
+
+[functions.verify-razorpay-payment]
+verify_jwt = false
+
+[functions.send-donor-report]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false
+
+[functions.list-wati-templates]
+verify_jwt = false
