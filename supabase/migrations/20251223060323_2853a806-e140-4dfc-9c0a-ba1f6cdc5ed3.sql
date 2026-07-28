@@ -1,1 +1,0 @@
-ALTER TABLE homes ADD COLUMN contact_details TEXT;

@@ -127,7 +127,7 @@ const Dashboard = () => {
                         <Repeat className="h-5 w-5 text-accent" />
                       </div>
                       <div>
-                        <p className="font-medium">{donation.homes?.name || 'Unknown Home'}</p>
+                        <p className="font-medium">{donation.homes?.name || 'Unknown Project'}</p>
                         <p className="text-sm text-muted-foreground">
                           {donation.needs?.description || donation.needs?.categories?.label || 'General donation'}
                         </p>
@@ -172,13 +172,13 @@ const Dashboard = () => {
           <Card>
             <CardContent className="pt-6">
               <Heart className="h-8 w-8 mb-4 text-primary" />
-              <h3 className="font-display text-xl font-semibold mb-2">Explore Homes</h3>
+              <h3 className="font-display text-xl font-semibold mb-2">Explore Projects</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Discover care homes and their current needs
+                Discover projects and their current needs
               </p>
               <Button variant="outline" asChild>
-                <Link to="/homes">
-                  View Homes
+                <Link to="/projects">
+                  View Projects
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -214,7 +214,7 @@ const Dashboard = () => {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium">{donation.homes?.name || 'Unknown Home'}</p>
+                        <p className="font-medium">{donation.homes?.name || 'Unknown Project'}</p>
                         <p className="text-sm text-muted-foreground">
                           {donation.needs?.description || donation.needs?.categories?.label || 'General donation'}
                         </p>

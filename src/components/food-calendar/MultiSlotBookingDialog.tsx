@@ -25,17 +25,20 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { IndianRupee, Loader2 } from 'lucide-react';
-import { useDonors, type DonorWithStats } from '@/hooks/useDonors';
+import { useDonors, useCreateDonor, type DonorWithStats } from '@/hooks/useDonors';
 import { useFoodSlotPricingMap } from '@/hooks/useFoodSlotPricing';
 import { useBulkBookFoodSlots } from '@/hooks/useFoodSlots';
 import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
 import { cn } from '@/lib/utils';
+import { normalizePaymentStatus } from '@/lib/foodSlotUtils';
+import type { FoodSlotPaymentStatus } from '@/lib/foodSlotUtils';
 
 const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
   MORNING: 'Breakfast',
   AFTERNOON: 'Lunch',
   EVENING: 'Dinner',
   REFRESHMENTS: 'Refreshments',
+  OUTSIDE_FOOD: 'Outside Food',
 };
 
 const SPONSOR_FOR_OPTIONS = [
@@ -82,6 +85,7 @@ export function MultiSlotBookingDialog({
   preSelectedDonor,
 }: MultiSlotBookingDialogProps) {
   const { data: donors = [] } = useDonors();
+  const createDonor = useCreateDonor();
   const { priceMap } = useFoodSlotPricingMap();
   const bulkBookMutation = useBulkBookFoodSlots();
 
@@ -91,12 +95,21 @@ export function MultiSlotBookingDialog({
 
   // Common fields (used when same for all)
   const [donorId, setDonorId] = useState<string>('');
+  const [showNewDonor, setShowNewDonor] = useState(false);
+  const [newDonor, setNewDonor] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    pan_number: '',
+    aadhar_number: '',
+    email: '',
+  });
   const [sponsorFor, setSponsorFor] = useState<string>('');
   const [customSponsorFor, setCustomSponsorFor] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [donateOnBehalfOf, setDonateOnBehalfOf] = useState<string>('');
-  const [paymentStatus, setPaymentStatus] = useState<string>('YET_TO_PAY');
+  const [paymentStatus, setPaymentStatus] = useState<FoodSlotPaymentStatus>('FULLY_PENDING');
   const [useManualAmount, setUseManualAmount] = useState(false);
   const [manualAmount, setManualAmount] = useState<string>('');
 
@@ -138,9 +151,11 @@ export function MultiSlotBookingDialog({
       setReason('');
       setNotes('');
       setDonateOnBehalfOf('');
-      setPaymentStatus('YET_TO_PAY');
+      setPaymentStatus('FULLY_PENDING');
       setUseManualAmount(false);
       setManualAmount('');
+      setShowNewDonor(false);
+      setNewDonor({ name: '', phone: '', address: '', pan_number: '', aadhar_number: '', email: '' });
       if (preSelectedDonor) {
         setDonorId(preSelectedDonor.id);
       } else {
@@ -193,7 +208,29 @@ export function MultiSlotBookingDialog({
   };
 
   const handleSubmit = async () => {
-    const effectiveDonorId = donorId || null;
+    let effectiveDonorId = donorId || null;
+
+    if (showNewDonor && !effectiveDonorId) {
+      if (!newDonor.name.trim() || !newDonor.phone.trim()) {
+        return;
+      }
+      const created = await createDonor.mutateAsync({
+        name: newDonor.name.trim(),
+        phone: newDonor.phone.trim(),
+        email: newDonor.email.trim() || `${newDonor.phone.trim().replace(/\D/g, '')}@walkin.local`,
+        password: `Temp${Date.now().toString(36)}!`,
+        address: newDonor.address.trim() || undefined,
+        pan_number: newDonor.pan_number.trim() || undefined,
+        aadhar_number: newDonor.aadhar_number.trim() || undefined,
+      });
+      effectiveDonorId = created?.user_id || created?.id || null;
+      if (!effectiveDonorId) {
+        throw new Error('Failed to create donor');
+      }
+    }
+
+    const normalizedPayment =
+      normalizePaymentStatus(paymentStatus) || 'FULLY_PENDING';
 
     if (step === 'same') {
       // Same details for all slots
@@ -210,7 +247,7 @@ export function MultiSlotBookingDialog({
           sponsor_for: getEffectiveSponsorFor(sponsorFor, customSponsorFor),
           note: notes,
           amount: effectiveAmount,
-          payment_status: paymentStatus,
+          payment_status: normalizedPayment,
           donate_on_behalf_of: donateOnBehalfOf || null,
         },
         trustId,
@@ -240,7 +277,7 @@ export function MultiSlotBookingDialog({
           sponsor_for: '', // Will use individual
           note: '', // Will use individual
           amount: effectiveAmount,
-          payment_status: paymentStatus,
+          payment_status: normalizedPayment,
           donate_on_behalf_of: null, // Will use individual
         },
         trustId,
@@ -249,8 +286,8 @@ export function MultiSlotBookingDialog({
     }
 
     // After successful booking, create donation + send payment email
-    const donor = preSelectedDonor || donors.find(d => d.id === donorId);
-    if (donor && effectiveAmount > 0 && paymentStatus !== 'PAID') {
+    const donor = preSelectedDonor || donors.find(d => d.id === effectiveDonorId);
+    if (donor && effectiveAmount > 0 && normalizedPayment !== 'FULLY_PAID') {
       try {
         const homeId = selectedSlots[0]?.homeId;
         const { data: insertedDonation } = await supabase
@@ -278,7 +315,7 @@ export function MultiSlotBookingDialog({
             donorName: donor.name,
             donationId: insertedDonation.id,
             amount: effectiveAmount,
-            homeName: selectedSlots[0]?.homeName || 'Care Home',
+            homeName: selectedSlots[0]?.homeName || 'Project',
             eventDescription: `Food Sponsorship (${slotSummary})`,
             date: selectedSlots[0]?.date || format(new Date(), 'dd MMM yyyy'),
           });
@@ -305,7 +342,18 @@ export function MultiSlotBookingDialog({
     return true;
   }, [selectedSlots, perSlotDetails]);
 
-  const isValid = step === 'same' ? isValidSameForAll : step === 'different' ? isValidDifferent : sameForAll !== null;
+  const isValidDonor =
+    !!preSelectedDonor ||
+    !!donorId ||
+    (showNewDonor && !!newDonor.name.trim() && !!newDonor.phone.trim());
+
+  const isValid =
+    isValidDonor &&
+    (step === 'same'
+      ? isValidSameForAll
+      : step === 'different'
+        ? isValidDifferent
+        : sameForAll !== null);
 
   const selectedDonorName = useMemo(() => {
     if (preSelectedDonor) return preSelectedDonor.name;
@@ -360,19 +408,97 @@ export function MultiSlotBookingDialog({
                   <span className="text-muted-foreground ml-2">({preSelectedDonor.email})</span>
                 </div>
               ) : (
-                <Select value={donorId} onValueChange={(val) => setDonorId(val === '__none__' ? '' : val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a donor (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">No donor selected</SelectItem>
-                    {donors.map(donor => (
-                      <SelectItem key={donor.id} value={donor.id}>
-                        {donor.name} ({donor.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-3">
+                  {!showNewDonor ? (
+                    <>
+                      <Select value={donorId} onValueChange={(val) => setDonorId(val === '__none__' ? '' : val)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a donor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No donor selected</SelectItem>
+                          {donors.map(donor => (
+                            <SelectItem key={donor.id} value={donor.id}>
+                              {donor.name}{donor.phone ? ` · ${donor.phone}` : donor.email ? ` · ${donor.email}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowNewDonor(true);
+                          setDonorId('');
+                        }}
+                      >
+                        Create new donor
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border p-3 bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <Label className="font-medium">New donor details</Label>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewDonor(false)}>
+                          Use existing
+                        </Button>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label>Name *</Label>
+                          <Input
+                            value={newDonor.name}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, name: e.target.value }))}
+                            placeholder="Full name"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Phone *</Label>
+                          <Input
+                            value={newDonor.phone}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, phone: e.target.value }))}
+                            placeholder="WhatsApp number"
+                          />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Address</Label>
+                          <Textarea
+                            value={newDonor.address}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, address: e.target.value }))}
+                            rows={2}
+                            placeholder="Full address"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>PAN</Label>
+                          <Input
+                            value={newDonor.pan_number}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, pan_number: e.target.value.toUpperCase() }))}
+                            placeholder="ABCDE1234F"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Aadhaar</Label>
+                          <Input
+                            value={newDonor.aadhar_number}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, aadhar_number: e.target.value.replace(/\D/g, '').slice(0, 12) }))}
+                            placeholder="12-digit Aadhaar"
+                          />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label>Email (optional)</Label>
+                          <Input
+                            type="email"
+                            value={newDonor.email}
+                            onChange={(e) => setNewDonor((p) => ({ ...p, email: e.target.value }))}
+                            placeholder="For payment link / receipt"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -503,18 +629,22 @@ export function MultiSlotBookingDialog({
                 {/* Payment Status */}
                 <div className="space-y-3">
                   <Label>Payment Status *</Label>
-                  <RadioGroup value={paymentStatus} onValueChange={setPaymentStatus} className="flex gap-6">
+                  <RadioGroup
+                    value={paymentStatus}
+                    onValueChange={(v) => setPaymentStatus(v as FoodSlotPaymentStatus)}
+                    className="flex flex-wrap gap-4"
+                  >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PAID" id="paid" />
-                      <Label htmlFor="paid" className="font-normal cursor-pointer">Paid</Label>
+                      <RadioGroupItem value="FULLY_PAID" id="paid" />
+                      <Label htmlFor="paid" className="font-normal cursor-pointer">Fully Paid</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="YET_TO_PAY" id="yet-to-pay" />
-                      <Label htmlFor="yet-to-pay" className="font-normal cursor-pointer">Yet to Pay</Label>
+                      <RadioGroupItem value="FULLY_PENDING" id="yet-to-pay" />
+                      <Label htmlFor="yet-to-pay" className="font-normal cursor-pointer">Pending</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PREPAID" id="prepaid" />
-                      <Label htmlFor="prepaid" className="font-normal cursor-pointer">Prepaid</Label>
+                      <RadioGroupItem value="PARTIALLY_PAID" id="prepaid" />
+                      <Label htmlFor="prepaid" className="font-normal cursor-pointer">Partially Paid</Label>
                     </div>
                   </RadioGroup>
                 </div>
@@ -646,18 +776,22 @@ export function MultiSlotBookingDialog({
                 {/* Payment Status - shared */}
                 <div className="space-y-3">
                   <Label>Payment Status *</Label>
-                  <RadioGroup value={paymentStatus} onValueChange={setPaymentStatus} className="flex gap-6">
+                  <RadioGroup
+                    value={paymentStatus}
+                    onValueChange={(v) => setPaymentStatus(v as FoodSlotPaymentStatus)}
+                    className="flex flex-wrap gap-4"
+                  >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PAID" id="paid-diff" />
-                      <Label htmlFor="paid-diff" className="font-normal cursor-pointer">Paid</Label>
+                      <RadioGroupItem value="FULLY_PAID" id="paid-diff" />
+                      <Label htmlFor="paid-diff" className="font-normal cursor-pointer">Fully Paid</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="YET_TO_PAY" id="yet-to-pay-diff" />
-                      <Label htmlFor="yet-to-pay-diff" className="font-normal cursor-pointer">Yet to Pay</Label>
+                      <RadioGroupItem value="FULLY_PENDING" id="yet-to-pay-diff" />
+                      <Label htmlFor="yet-to-pay-diff" className="font-normal cursor-pointer">Pending</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PREPAID" id="prepaid-diff" />
-                      <Label htmlFor="prepaid-diff" className="font-normal cursor-pointer">Prepaid</Label>
+                      <RadioGroupItem value="PARTIALLY_PAID" id="prepaid-diff" />
+                      <Label htmlFor="prepaid-diff" className="font-normal cursor-pointer">Partially Paid</Label>
                     </div>
                   </RadioGroup>
                 </div>
@@ -682,9 +816,11 @@ export function MultiSlotBookingDialog({
           ) : (
             <Button 
               onClick={handleSubmit} 
-              disabled={!isValid || bulkBookMutation.isPending}
+              disabled={!isValid || bulkBookMutation.isPending || createDonor.isPending}
             >
-              {bulkBookMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(bulkBookMutation.isPending || createDonor.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               Confirm Booking ({selectedSlots.length} slot{selectedSlots.length > 1 ? 's' : ''})
             </Button>
           )}

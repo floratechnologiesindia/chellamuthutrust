@@ -1,0 +1,67 @@
+name: msctrustcrm
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: msctrustcrm-mongo
+    volumes:
+      - msctrustcrm_mongo_data:/data/db
+    restart: unless-stopped
+    networks:
+      - msctrustcrm
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.msctrustcrm.com/api}
+        VITE_DONOR_PORTAL_URL: ${VITE_DONOR_PORTAL_URL:-https://donor.msctrustcrm.com}
+        VITE_APP_PORTAL_URL: ${VITE_APP_PORTAL_URL:-https://app.msctrustcrm.com}
+        VITE_WEBSITE_URL: ${VITE_WEBSITE_URL:-https://msctrust.org}
+        VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-}
+        VITE_SHOW_DEV_OTP: ${VITE_SHOW_DEV_OTP:-false}
+        VITE_MANUAL_PAYMENTS: ${VITE_MANUAL_PAYMENTS:-false}
+    container_name: msctrustcrm-app
+    ports:
+      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:8081:80"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: mongodb://mongo:27017/chellamuthu
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CLIENT_URL: ${CLIENT_URL:-https://donor.msctrustcrm.com,https://app.msctrustcrm.com}
+      UPLOAD_DIR: /app/uploads
+      PUBLIC_UPLOAD_URL: ${PUBLIC_UPLOAD_URL:-https://api.msctrustcrm.com/uploads}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      GMAIL_USER: ${GMAIL_USER:-}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      WATI_API_ENDPOINT: ${WATI_API_ENDPOINT:-}
+      WATI_ACCESS_TOKEN: ${WATI_ACCESS_TOKEN:-}
+      SHOW_DEV_OTP: ${SHOW_DEV_OTP:-false}
+      MANUAL_PAYMENTS: ${MANUAL_PAYMENTS:-false}
+    volumes:
+      - msctrustcrm_uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - msctrustcrm
+    restart: unless-stopped
+
+networks:
+  msctrustcrm:
+    name: msctrustcrm
+
+volumes:
+  msctrustcrm_mongo_data:
+  msctrustcrm_uploads:

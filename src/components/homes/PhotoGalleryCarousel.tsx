@@ -8,32 +8,22 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import type { HomePhoto } from '@/hooks/useHomePhotos';
 
 interface PhotoGalleryCarouselProps {
   photos: HomePhoto[];
-  fallbackImage?: string | null;
   className?: string;
 }
 
-export function PhotoGalleryCarousel({ photos, fallbackImage, className }: PhotoGalleryCarouselProps) {
+export function PhotoGalleryCarousel({ photos, className }: PhotoGalleryCarouselProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
 
-  // If no photos, show fallback or placeholder
-  if (photos.length === 0) {
-    return (
-      <div className={cn('relative aspect-video w-full overflow-hidden rounded-lg', className)}>
-        <img
-          src={fallbackImage || '/placeholder.svg'}
-          alt="Home"
-          className="h-full w-full object-cover"
-        />
-      </div>
-    );
-  }
+  if (photos.length === 0) return null;
 
   const currentPhoto = photos[selectedIndex];
+  const photoSrc = (photo: HomePhoto) => normalizeMediaUrl(photo.url) || '/placeholder.svg';
 
   return (
     <div className={cn('relative isolate', className)}>
@@ -44,16 +34,16 @@ export function PhotoGalleryCarousel({ photos, fallbackImage, className }: Photo
             {photos.map((photo, index) => (
               <CarouselItem key={photo.id}>
                 <div
-                  className="relative aspect-video cursor-pointer overflow-hidden rounded-xl"
+                  className="home-image-frame cursor-pointer rounded-xl"
                   onClick={() => {
                     setSelectedIndex(index);
                     setFullscreenOpen(true);
                   }}
                 >
                   <img
-                    src={photo.url}
+                    src={photoSrc(photo)}
                     alt={photo.caption || `Photo ${index + 1}`}
-                    className="h-full w-full object-cover transition-transform hover:scale-105"
+                    className="transition-transform hover:scale-105"
                   />
                   {photo.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
@@ -87,7 +77,7 @@ export function PhotoGalleryCarousel({ photos, fallbackImage, className }: Photo
                 )}
               >
                 <img
-                  src={photo.url}
+                  src={photoSrc(photo)}
                   alt={photo.caption || `Thumbnail ${index + 1}`}
                   className="h-full w-full object-cover"
                 />
@@ -102,7 +92,7 @@ export function PhotoGalleryCarousel({ photos, fallbackImage, className }: Photo
         <DialogContent className="max-w-5xl border-none bg-black/95 p-0">
           <div className="relative">
             <img
-              src={currentPhoto?.url}
+              src={currentPhoto ? photoSrc(currentPhoto) : '/placeholder.svg'}
               alt={currentPhoto?.caption || 'Full size photo'}
               className="max-h-[85vh] w-full object-contain"
             />

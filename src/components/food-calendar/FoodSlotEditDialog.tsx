@@ -32,6 +32,7 @@ const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
   AFTERNOON: 'Lunch',
   EVENING: 'Dinner',
   REFRESHMENTS: 'Refreshments',
+  OUTSIDE_FOOD: 'Outside Food',
 };
 
 const STATUS_OPTIONS: { value: FoodSlotStatus; label: string; color: string }[] = [

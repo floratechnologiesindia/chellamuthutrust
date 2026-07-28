@@ -29,6 +29,9 @@ export function useCreateResident() {
       category: 'child' | 'old_age' | 'others';
       status?: 'active' | 'moved_out' | 'deceased';
       special_needs?: string | null;
+      photo_url?: string | null;
+      admission_date?: string | null;
+      discharge_date?: string | null;
     }) => {
       const { data, error } = await supabase
         .from('residents')
@@ -40,6 +43,7 @@ export function useCreateResident() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
+      queryClient.invalidateQueries({ queryKey: ['warden-task-bar'] });
     },
   });
 }
@@ -55,6 +59,9 @@ export function useUpdateResident() {
       category?: 'child' | 'old_age' | 'others';
       status?: 'active' | 'moved_out' | 'deceased';
       special_needs?: string | null;
+      photo_url?: string | null;
+      admission_date?: string | null;
+      discharge_date?: string | null;
     }) => {
       const { data, error } = await supabase
         .from('residents')
@@ -67,6 +74,7 @@ export function useUpdateResident() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['residents'] });
+      queryClient.invalidateQueries({ queryKey: ['warden-task-bar'] });
     },
   });
 }

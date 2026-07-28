@@ -150,7 +150,7 @@ export const ImpactProgramsList = ({ donor, categoryId, categoryLabel, onBooking
           donorName: donor.name,
           donationId: insertedDonation.id,
           amount: parseFloat(donationAmount),
-          homeName: selectedNeed.homes?.name || 'Care Home',
+          homeName: selectedNeed.homes?.name || 'Project',
           eventDescription: selectedNeed.description || undefined,
           date: format(new Date(selectedNeed.date), 'dd MMM yyyy'),
         });
@@ -214,10 +214,10 @@ export const ImpactProgramsList = ({ donor, categoryId, categoryLabel, onBooking
           <Select value={homeFilter} onValueChange={setHomeFilter}>
             <SelectTrigger className="w-[180px]">
               <Home className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Homes" />
+              <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Homes</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
               {homes.map((home) => (
                 <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
               ))}
@@ -262,7 +262,7 @@ export const ImpactProgramsList = ({ donor, categoryId, categoryLabel, onBooking
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">Date</TableHead>
-                  <TableHead>Home</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead className="max-w-[300px]">Description</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Progress</TableHead>

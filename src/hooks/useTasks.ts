@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { formatUserDisplayName } from '@/lib/roleLabels';
 import { Task, TaskStatus, TaskPriority } from '@/types';
 import { toast } from '@/hooks/use-toast';
 
@@ -84,33 +85,23 @@ export function useStaffUsers() {
   return useQuery({
     queryKey: ['staff-users'],
     queryFn: async () => {
-      // Step 1: Get staff user IDs and roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['admin', 'employee', 'warden']);
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
 
-      if (rolesError) throw rolesError;
-      if (!roles || roles.length === 0) return [] as StaffUser[];
-
-      const userIds = roles.map(r => r.user_id);
-
-      // Step 2: Get profiles for those user IDs
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      // Step 3: Merge on client side
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-      return roles.map(r => ({
-        id: r.user_id,
-        name: profileMap.get(r.user_id)?.name || 'Unknown',
-        email: profileMap.get(r.user_id)?.email || '',
-        role: r.role,
-      })) as StaffUser[];
+      const staffRoles = new Set(['admin', 'employee', 'warden', 'super_admin', 'finance']);
+      return ((data || []) as Array<{
+        id: string;
+        name?: string;
+        email?: string;
+        role?: string;
+      }>)
+        .filter((u) => u.role && staffRoles.has(u.role))
+        .map((u) => ({
+          id: u.id,
+          name: formatUserDisplayName(u.name || 'Unknown'),
+          email: u.email || '',
+          role: u.role as StaffUser['role'],
+        })) as StaffUser[];
     },
   });
 }

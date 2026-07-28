@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { uploadHomeImageFile, insertHomePhotoRecord } from '@/lib/homePhotoUpload';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 
 export interface HomePhoto {
   id: string;
@@ -10,6 +12,18 @@ export interface HomePhoto {
   display_order: number;
   is_primary: boolean;
   created_at: string;
+}
+
+export function normalizeHomePhoto(raw: Record<string, unknown>): HomePhoto {
+  return {
+    id: String(raw.id || raw._id),
+    home_id: String(raw.home_id),
+    url: normalizeMediaUrl((raw.url as string) || (raw.image_url as string)) || '',
+    caption: (raw.caption as string) || null,
+    display_order: Number(raw.display_order ?? raw.sort_order ?? 0),
+    is_primary: Boolean(raw.is_primary),
+    created_at: String(raw.created_at || new Date().toISOString()),
+  };
 }
 
 export function useHomePhotos(homeId: string | null) {
@@ -22,10 +36,11 @@ export function useHomePhotos(homeId: string | null) {
         .from('home_photos')
         .select('*')
         .eq('home_id', homeId)
-        .order('display_order', { ascending: true });
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
-      return data as HomePhoto[];
+      const rows = (data as Record<string, unknown>[] | null) || [];
+      return rows.map(normalizeHomePhoto);
     },
     enabled: !!homeId,
   });
@@ -44,56 +59,8 @@ export function useAddHomePhoto() {
       file: File;
       caption?: string;
     }) => {
-      // Upload to storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${homeId}/${crypto.randomUUID()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('home-photos')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('home-photos')
-        .getPublicUrl(fileName);
-
-      // Get current max display_order
-      const { data: existingPhotos } = await supabase
-        .from('home_photos')
-        .select('display_order')
-        .eq('home_id', homeId)
-        .order('display_order', { ascending: false })
-        .limit(1);
-
-      const nextOrder = existingPhotos && existingPhotos.length > 0 
-        ? (existingPhotos[0].display_order || 0) + 1 
-        : 0;
-
-      // Check if this is the first photo (make it primary)
-      const { count } = await supabase
-        .from('home_photos')
-        .select('*', { count: 'exact', head: true })
-        .eq('home_id', homeId);
-
-      const isPrimary = count === 0;
-
-      // Insert into database
-      const { data, error } = await supabase
-        .from('home_photos')
-        .insert({
-          home_id: homeId,
-          url: urlData.publicUrl,
-          caption: caption || null,
-          display_order: nextOrder,
-          is_primary: isPrimary,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const publicUrl = await uploadHomeImageFile(homeId, file);
+      return insertHomePhotoRecord(homeId, publicUrl, { caption });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['home-photos', variables.homeId] });
@@ -133,7 +100,7 @@ export function useDeleteHomePhoto() {
           .from('home_photos')
           .select('id')
           .eq('home_id', photo.home_id)
-          .order('display_order', { ascending: true })
+          .order('sort_order', { ascending: true })
           .limit(1);
 
         if (remainingPhotos && remainingPhotos.length > 0) {
@@ -162,13 +129,20 @@ export function useSetPrimaryPhoto() {
 
   return useMutation({
     mutationFn: async ({ photo }: { photo: HomePhoto }) => {
-      // Unset current primary
-      await supabase
+      // The API layer only supports updates addressed by row id, so unset one row at a time.
+      const { data: siblings } = await supabase
         .from('home_photos')
-        .update({ is_primary: false })
+        .select('*')
         .eq('home_id', photo.home_id);
 
-      // Set new primary
+      const currentPrimaries = ((siblings as Record<string, unknown>[] | null) || [])
+        .map(normalizeHomePhoto)
+        .filter((p) => p.is_primary && p.id !== photo.id);
+
+      for (const previous of currentPrimaries) {
+        await supabase.from('home_photos').update({ is_primary: false }).eq('id', previous.id);
+      }
+
       const { error } = await supabase
         .from('home_photos')
         .update({ is_primary: true })

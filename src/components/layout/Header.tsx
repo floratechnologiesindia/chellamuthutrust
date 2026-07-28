@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Bell, Menu, X, User, LogOut, Settings, LayoutDashboard, Heart, Landmark, Package, FileText, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatUserRole } from '@/lib/roleLabels';
 import { useNotifications, useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import logo from '@/assets/logo.jpg';
@@ -60,8 +61,8 @@ export const Header = () => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link to="/homes" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Homes
+          <Link to="/projects" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Projects
           </Link>
           <Link to="/sponsor" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Sponsor
@@ -129,7 +130,7 @@ export const Header = () => {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="p-2">
                     <p className="font-medium">{user?.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{user?.role.replace('_', ' ')}</p>
+                    <p className="text-xs text-muted-foreground">{formatUserRole(user?.role)}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate(getDashboardLink())}>
@@ -226,11 +227,11 @@ export const Header = () => {
       )}>
         <nav className="container py-4 flex flex-col gap-2">
           <Link 
-            to="/homes" 
+            to="/projects" 
             className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-md"
             onClick={() => setMobileMenuOpen(false)}
           >
-            Homes
+            Projects
           </Link>
           <Link 
             to="/sponsor" 

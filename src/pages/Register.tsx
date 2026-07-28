@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { getLoginPath } from '@/lib/portal';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -61,7 +62,7 @@ const Register = () => {
             title: 'Check your email',
             description: result.error,
           });
-          navigate('/login');
+          navigate(getLoginPath());
         } else {
           toast({
             title: 'Welcome to Chellamuthu Trust!',
@@ -88,7 +89,7 @@ const Register = () => {
   };
 
   return (
-    <MainLayout showFooter={false}>
+    <MainLayout>
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
         <Card className="w-full max-w-md animate-scale-in">
           <CardHeader className="text-center">
@@ -169,7 +170,7 @@ const Register = () => {
               </Button>
               <p className="text-sm text-muted-foreground text-center">
                 Already have an account?{' '}
-                <Link to="/login" className="text-primary hover:underline">
+                <Link to={getLoginPath()} className="text-primary hover:underline">
                   Sign in
                 </Link>
               </p>

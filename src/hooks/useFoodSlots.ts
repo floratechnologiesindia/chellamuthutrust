@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { mergeFoodSlotsByCell, normalizePaymentStatus } from '@/lib/foodSlotUtils';
 
-export type FoodTimeSlot = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'REFRESHMENTS';
+export type FoodTimeSlot = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'REFRESHMENTS' | 'OUTSIDE_FOOD';
 export type FoodSlotStatus = 'NEED' | 'BOOKED' | 'PAID';
-export type PaymentStatus = 'PAID' | 'YET_TO_PAY' | 'PREPAID';
+export type FoodSlotPaymentStatus = 'FULLY_PAID' | 'PARTIALLY_PAID' | 'FULLY_PENDING';
+export type PaymentStatus = 'PAID' | 'YET_TO_PAY' | 'PREPAID' | FoodSlotPaymentStatus;
 
 export interface FoodSlot {
   id: string;
@@ -25,7 +28,12 @@ export interface FoodSlot {
   sponsor_for: string | null;
   amount: number | null;
   payment_status: string | null;
+  amount_paid: number | null;
+  payment_mode: string | null;
   donate_on_behalf_of: string | null;
+  donation_id?: string | null;
+  report_sent_at?: string | null;
+  donor_name?: string | null;
   completion_status: string | null;
   completion_notes: string | null;
   completion_photos: string[] | null;
@@ -109,9 +117,12 @@ export function useFoodSlots(homeId: string | null, year: number, month: number)
     queryKey: ['food-slots', homeId, year, month],
     queryFn: async () => {
       if (!homeId) return [];
-      
-      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+      // Match FoodCalendarGrid: include overflow days from adjacent months
+      const monthStart = startOfMonth(new Date(year, month, 1));
+      const monthEnd = endOfMonth(monthStart);
+      const startDate = format(startOfWeek(monthStart), 'yyyy-MM-dd');
+      const endDate = format(endOfWeek(monthEnd), 'yyyy-MM-dd');
       
       const { data, error } = await supabase
         .from('food_slots')
@@ -122,7 +133,7 @@ export function useFoodSlots(homeId: string | null, year: number, month: number)
         .order('date', { ascending: true });
 
       if (error) throw error;
-      return data as FoodSlotWithDonor[];
+      return mergeFoodSlotsByCell(data as FoodSlotWithDonor[]) as FoodSlotWithDonor[];
     },
     enabled: !!homeId,
   });
@@ -280,7 +291,7 @@ export function useSponsorFoodSlot() {
           user_id: u.user_id,
           type: 'payment_awaiting_assignment' as const,
           title: 'Food Sponsorship Pending Payment',
-          message: `A ${slotLabel} food slot on ${slotDate} at ${homeName || 'a home'} has been booked without payment. Please track the expected payment.`,
+          message: `A ${slotLabel} food slot on ${slotDate} at ${homeName || 'a project'} has been booked without payment. Please track the expected payment.`,
         }));
         await supabase.from('notifications').insert(notifications);
       }
@@ -358,6 +369,8 @@ export function useBulkBookFoodSlots() {
   return useMutation({
     mutationFn: async ({ slots, bookingData, trustId, useIndividualDetails }: BulkBookFoodSlotsParams) => {
       const results = [];
+      const paymentStatus =
+        normalizePaymentStatus(bookingData.payment_status) || bookingData.payment_status;
       
       for (const slot of slots) {
         const slotBookingData = useIndividualDetails && slot.individualDetails
@@ -386,7 +399,7 @@ export function useBulkBookFoodSlots() {
               note: slotBookingData.note,
               donate_on_behalf_of: slotBookingData.donate_on_behalf_of,
               amount: bookingData.amount / slots.length, // Divide amount across slots
-              payment_status: bookingData.payment_status,
+              payment_status: paymentStatus,
               current_sponsors_count: 1,
             })
             .eq('id', slot.existingSlotId)
@@ -411,7 +424,7 @@ export function useBulkBookFoodSlots() {
               note: slotBookingData.note,
               donate_on_behalf_of: slotBookingData.donate_on_behalf_of,
               amount: bookingData.amount / slots.length,
-              payment_status: bookingData.payment_status,
+              payment_status: paymentStatus,
               current_sponsors_count: 1,
               created_by: user?.id,
             })
@@ -445,15 +458,13 @@ export function useDonorFoodSlots(donorId: string | null) {
       
       const { data, error } = await supabase
         .from('food_slots')
-        .select(`
-          *,
-          homes:home_id (name)
-        `)
+        .select('*, homes (name)')
         .eq('donor_id', donorId)
-        .order('date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as (FoodSlot & { homes: { name: string } | null })[];
+      const slots = data as (FoodSlot & { homes: { name: string } | null })[];
+      return mergeFoodSlotsByCell(slots) as (FoodSlot & { homes: { name: string } | null })[];
     },
     enabled: !!donorId,
   });

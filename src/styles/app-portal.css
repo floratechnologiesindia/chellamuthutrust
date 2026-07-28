@@ -1,0 +1,687 @@
+/* Staff CRM (app.msctrustcrm.com) — MSC brand applied to all shadcn UI */
+
+body.portal-app {
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #666666;
+  background-color: #fff;
+  -webkit-font-smoothing: antialiased;
+
+  /* shadcn tokens (match donor portal) */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 20%;
+  --primary: 45 100% 53%;
+  --primary-foreground: 0 1% 23%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 20%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 20%;
+  --secondary: 0 0% 98%;
+  --secondary-foreground: 0 0% 20%;
+  --muted: 0 0% 98%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 45 100% 53%;
+  --accent-foreground: 0 1% 23%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 45 100% 53%;
+  --radius: 0.25rem;
+
+  --msc-yellow: #ffca0f;
+  --msc-yellow-hover: #ffcc10;
+  --msc-orange: #ff6633;
+  --msc-button-text: #3c3b3b;
+  --msc-teal: #7ebec5;
+  --msc-heading: #333333;
+  --msc-body: #666666;
+  --msc-border: #e6e6e6;
+  --msc-surface-alt: #f9f9f9;
+  --msc-header-max: 1366px;
+  --msc-row-px: 50px;
+}
+
+body.portal-app .font-sans {
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+body.portal-app .font-display,
+body.portal-app h1,
+body.portal-app h2,
+body.portal-app h3,
+body.portal-app h4,
+body.portal-app h5,
+body.portal-app h6 {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  color: #333333;
+  font-weight: 500;
+}
+
+body.portal-app .container {
+  max-width: var(--msc-header-max);
+  padding-left: var(--msc-row-px);
+  padding-right: var(--msc-row-px);
+}
+
+@media (max-width: 767px) {
+  body.portal-app .container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+
+.portal-app {
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--msc-body);
+  background-color: #fff;
+}
+
+.portal-app .app-container {
+  width: 100%;
+  max-width: var(--msc-header-max);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--msc-row-px);
+  padding-right: var(--msc-row-px);
+}
+
+@media (max-width: 767px) {
+  .portal-app .app-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+.portal-app .app-page-header {
+  border-bottom: 1px solid var(--msc-border);
+  background: linear-gradient(180deg, rgba(255, 202, 15, 0.06) 0%, #fff 100%);
+}
+
+.portal-app .app-page-title {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--msc-heading);
+  line-height: 1.3;
+}
+
+.portal-app .app-page-subtitle {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 300;
+  color: var(--msc-body);
+}
+
+/* CRM header variant */
+.portal-app .msc-header-crm .msc-header-nav-list a.is-active {
+  color: #ff6633 !important;
+  opacity: 1;
+}
+
+.portal-app .msc-header-crm .msc-header-account {
+  gap: 8px;
+  z-index: 2;
+}
+
+.portal-app .msc-header-crm .msc-header-account-btn,
+.portal-app .msc-header-crm .msc-header-profile-btn {
+  flex-shrink: 0;
+}
+
+.portal-app .msc-header-crm .msc-header-project-switcher {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.portal-app .msc-header-crm .msc-header-project-switcher [data-radix-select-trigger] {
+  max-width: 100%;
+}
+
+.portal-app .msc-header-crm .msc-header-nav-wrap--warden {
+  padding-right: clamp(6.5rem, 18vw, 17rem);
+  justify-content: center;
+}
+
+.portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav-list {
+  flex-wrap: nowrap;
+  gap: 0 clamp(1rem, 1.9vw, 1.75rem);
+  margin: 0 auto;
+}
+
+.portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav-list a {
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+  padding: 0.4rem 0;
+  white-space: nowrap;
+}
+
+/* Not enough room for the full row — scroll it from the left instead of centring */
+@media (max-width: 1199px) {
+  .portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav {
+    justify-content: flex-start;
+  }
+
+  .portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav-list {
+    margin: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .portal-app .msc-header-crm .msc-header-nav-wrap--warden {
+    padding-right: 5.5rem;
+  }
+
+  .portal-app .msc-header-crm .msc-header-nav-wrap--warden .msc-header-nav {
+    display: none;
+  }
+}
+
+/* ─── Shared MSC buttons (shadcn Button) ─── */
+
+body.portal-app button.inline-flex,
+body.portal-app a.inline-flex[role="button"],
+.portal-app button.inline-flex {
+  font-family: 'Rubik', Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 30px;
+  transition: all 300ms ease;
+}
+
+body.portal-app button.bg-primary,
+body.portal-app a.bg-primary,
+.portal-app .bg-primary.text-primary-foreground {
+  background-color: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+}
+
+body.portal-app button.bg-primary:hover,
+body.portal-app a.bg-primary:hover {
+  background-color: var(--msc-yellow-hover) !important;
+}
+
+body.portal-app button.border-input,
+body.portal-app button[class*="border"][class*="bg-background"] {
+  border-color: var(--msc-border);
+  color: var(--msc-button-text);
+}
+
+body.portal-app button.border-input:hover,
+body.portal-app button[class*="border"][class*="bg-background"]:hover {
+  border-color: var(--msc-yellow);
+  background-color: #fff;
+}
+
+body.portal-app button.hover\:bg-accent:hover,
+body.portal-app [class*="hover:bg-accent"]:hover {
+  background-color: rgba(255, 202, 15, 0.15) !important;
+  color: var(--msc-heading) !important;
+}
+
+body.portal-app button.bg-destructive,
+body.portal-app .bg-destructive.text-destructive-foreground {
+  border-radius: 30px;
+}
+
+body.portal-app button.ghost,
+body.portal-app button[class*="hover:bg-accent"] {
+  border-radius: 30px;
+}
+
+/* ─── Inputs, selects, textareas ─── */
+
+body.portal-app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+body.portal-app textarea,
+body.portal-app button[role="combobox"],
+body.portal-app [data-radix-select-trigger] {
+  font-family: 'Rubik', sans-serif;
+  background-color: var(--msc-surface-alt) !important;
+  border-color: var(--msc-border) !important;
+  color: var(--msc-heading) !important;
+  border-radius: 0.25rem !important;
+}
+
+body.portal-app input:focus,
+body.portal-app textarea:focus,
+body.portal-app button[role="combobox"]:focus,
+body.portal-app [data-radix-select-trigger]:focus {
+  border-color: var(--msc-yellow) !important;
+  box-shadow: 0 0 0 2px rgba(255, 202, 15, 0.2) !important;
+  outline: none;
+}
+
+body.portal-app label {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+}
+
+/* ─── Cards ─── */
+
+body.portal-app .rounded-lg.border.bg-card,
+body.portal-app [class*="rounded-lg"][class*="border"][class*="bg-card"],
+.portal-app .donor-card,
+.portal-app .rounded-lg.border.bg-card {
+  border-color: var(--msc-border) !important;
+  border-radius: 0.25rem !important;
+  box-shadow: none;
+}
+
+body.portal-app .text-card-foreground {
+  color: var(--msc-heading);
+}
+
+/* ─── Tables ─── */
+
+body.portal-app table {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+}
+
+body.portal-app thead tr {
+  border-bottom-color: var(--msc-border);
+}
+
+body.portal-app th {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 600;
+  color: var(--msc-heading);
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+body.portal-app tbody tr:hover {
+  background-color: rgba(255, 202, 15, 0.06);
+}
+
+/* ─── Tabs ─── */
+
+body.portal-app [role="tablist"] {
+  background-color: var(--msc-surface-alt);
+  border: 1px solid var(--msc-border);
+  border-radius: 30px;
+  padding: 4px;
+}
+
+body.portal-app [role="tab"][data-state="active"] {
+  background-color: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+  border-radius: 30px !important;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+body.portal-app [role="tab"] {
+  font-family: 'Rubik', sans-serif;
+  border-radius: 30px;
+}
+
+/* ─── Badges ─── */
+
+body.portal-app .inline-flex.items-center.rounded-full.border {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Dialogs & alert dialogs ─── */
+
+body.portal-app [role="dialog"],
+body.portal-app [role="alertdialog"] {
+  font-family: 'Open Sans', Arial, sans-serif;
+  color: var(--msc-body);
+  border-color: var(--msc-border) !important;
+  border-radius: 0.25rem !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.portal-app [role="dialog"] h2,
+body.portal-app [role="alertdialog"] h2,
+body.portal-app [role="dialog"] [class*="font-semibold"],
+body.portal-app [role="alertdialog"] [class*="font-semibold"] {
+  font-family: 'Rubik', sans-serif !important;
+  font-weight: 500 !important;
+  color: var(--msc-heading) !important;
+}
+
+body.portal-app [data-radix-dialog-overlay],
+body.portal-app [data-radix-alert-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+/* ─── Dropdowns, selects, popovers, tooltips, command ─── */
+
+body.portal-app [role="menu"],
+body.portal-app [role="listbox"],
+body.portal-app [data-radix-popper-content-wrapper] > div,
+body.portal-app [role="tooltip"] {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif !important;
+  border-color: var(--msc-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+body.portal-app [role="menuitem"],
+body.portal-app [role="option"] {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+  border-radius: 4px;
+}
+
+body.portal-app [role="menuitem"][data-highlighted],
+body.portal-app [role="menuitem"]:focus,
+body.portal-app [role="option"][data-highlighted],
+body.portal-app [role="option"]:focus,
+body.portal-app [role="option"]:hover {
+  background-color: rgba(255, 202, 15, 0.15) !important;
+  color: var(--msc-heading) !important;
+}
+
+/* ─── Sheet / drawer ─── */
+
+body.portal-app [data-state="open"][class*="fixed"][class*="z-50"][class*="bg-background"] {
+  font-family: 'Open Sans', Arial, sans-serif;
+  border-color: var(--msc-border);
+}
+
+/* ─── Checkbox, switch, radio ─── */
+
+body.portal-app button[role="checkbox"][data-state="checked"],
+body.portal-app [data-state="checked"][class*="bg-primary"] {
+  background-color: var(--msc-yellow) !important;
+  border-color: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+}
+
+body.portal-app [data-state="checked"].bg-primary {
+  background-color: var(--msc-orange) !important;
+}
+
+/* ─── Progress ─── */
+
+body.portal-app [role="progressbar"] > div {
+  background-color: var(--msc-yellow) !important;
+}
+
+/* ─── Calendar ─── */
+
+body.portal-app .rdp {
+  font-family: 'Rubik', sans-serif;
+}
+
+body.portal-app .rdp-day_selected {
+  background-color: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+}
+
+body.portal-app .rdp-day_today:not(.rdp-day_selected) {
+  color: var(--msc-orange) !important;
+}
+
+/* ─── Toast & Sonner ─── */
+
+body.portal-app .toaster [data-sonner-toast],
+body.portal-app [data-sonner-toast] {
+  font-family: 'Rubik', sans-serif !important;
+  border-color: var(--msc-border) !important;
+  border-radius: 8px !important;
+}
+
+body.portal-app [data-sonner-toast] [data-button] {
+  background-color: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+  border-radius: 30px !important;
+}
+
+/* ─── Super admin / staff nav pills ─── */
+
+.portal-app .app-staff-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--msc-border);
+  border-radius: 0.25rem;
+  background: linear-gradient(180deg, rgba(255, 202, 15, 0.04) 0%, #fff 100%);
+  margin-bottom: 1.5rem;
+}
+
+.portal-app .app-staff-nav .donor-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8125rem;
+  padding: 0.5rem 1rem;
+  min-height: auto;
+  gap: 0.375rem;
+}
+
+.portal-app .app-staff-nav .donor-btn-primary.app-nav-active {
+  border: 2px solid var(--msc-orange);
+}
+
+/* ─── Login page ─── */
+
+.portal-app .app-login-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(255, 202, 15, 0.08) 0%, #fff 40%);
+}
+
+.portal-app .app-login-card {
+  border: 1px solid var(--msc-border);
+  border-radius: 0.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+.portal-app .app-login-eyebrow {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--msc-orange);
+}
+
+/* ─── Skeleton, separator ─── */
+
+body.portal-app .bg-muted {
+  background-color: var(--msc-surface-alt) !important;
+}
+
+body.portal-app .bg-muted.animate-pulse {
+  background-color: #efefef !important;
+}
+
+/* ─── Charts (recharts) ─── */
+
+body.portal-app .recharts-text {
+  font-family: 'Rubik', sans-serif !important;
+  fill: var(--msc-body) !important;
+}
+
+/* ─── Scroll areas ─── */
+
+body.portal-app [data-radix-scroll-area-viewport] {
+  font-family: 'Rubik', sans-serif;
+}
+
+/* ─── Accordion ─── */
+
+body.portal-app [data-radix-accordion-trigger] {
+  font-family: 'Rubik', sans-serif;
+  color: var(--msc-heading);
+}
+
+/* ─── Alert component ─── */
+
+body.portal-app [role="alert"] {
+  font-family: 'Rubik', sans-serif;
+  border-radius: 0.25rem;
+}
+
+/* ─── Links ─── */
+
+body.portal-app a.text-primary,
+.portal-app a.text-primary {
+  color: var(--msc-orange) !important;
+}
+
+body.portal-app a.text-primary:hover {
+  color: #e55a2b !important;
+}
+
+/* ─── Command palette / search ─── */
+
+body.portal-app [cmdk-root] {
+  font-family: 'Rubik', sans-serif;
+  border-color: var(--msc-border);
+  border-radius: 8px;
+}
+
+body.portal-app [cmdk-item][data-selected="true"] {
+  background-color: rgba(255, 202, 15, 0.15) !important;
+}
+
+/* ─── Pagination ─── */
+
+body.portal-app nav[aria-label="pagination"] button,
+body.portal-app nav[aria-label="pagination"] a {
+  border-radius: 30px;
+  font-family: 'Rubik', sans-serif;
+}
+
+/* ─── Hover utilities from index.css ─── */
+
+body.portal-app .card-hover:hover {
+  border-color: rgba(255, 102, 51, 0.2) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.portal-app .btn-gradient {
+  background: var(--msc-yellow) !important;
+  color: var(--msc-button-text) !important;
+}
+
+body.portal-app .text-gradient {
+  background: none;
+  -webkit-text-fill-color: var(--msc-orange);
+  color: var(--msc-orange);
+}
+
+/* Status badges — MSC palette */
+body.portal-app .status-open {
+  background-color: rgba(126, 190, 197, 0.2) !important;
+  color: #3d6b72 !important;
+  border-color: rgba(126, 190, 197, 0.4) !important;
+}
+
+body.portal-app .status-partial {
+  background-color: rgba(255, 202, 15, 0.25) !important;
+  color: #6b5a00 !important;
+  border-color: rgba(255, 202, 15, 0.4) !important;
+}
+
+body.portal-app .status-sponsored {
+  background-color: rgba(255, 102, 51, 0.12) !important;
+  color: #c44a22 !important;
+  border-color: rgba(255, 102, 51, 0.25) !important;
+}
+
+body.portal-app .status-completed {
+  background-color: var(--msc-surface-alt) !important;
+  color: var(--msc-body) !important;
+}
+
+/* Reuse donor semantic classes inside CRM */
+.portal-app .donor-btn,
+.portal-app .donor-card,
+.portal-app .donor-input,
+.portal-app .donor-section-title,
+.portal-app .donor-dropdown-menu {
+  /* inherited from donor-portal.css via shared .portal-app token block */
+}
+
+.portal-app .donor-dropdown-menu {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--msc-body);
+  background: #fff;
+  border: 1px solid var(--msc-border) !important;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.portal-app .donor-dropdown-item {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+  padding: 10px 14px;
+}
+
+.portal-app .donor-dropdown-item[data-highlighted],
+.portal-app .donor-dropdown-item:focus {
+  background: rgba(255, 202, 15, 0.15);
+  color: var(--msc-heading);
+}
+
+.portal-app .donor-dropdown-logout {
+  color: #c0392b;
+}
+
+.portal-app .donor-dropdown-separator {
+  background: var(--msc-border);
+}
+
+/* Social worker home profile — brochure-style page within staff portal */
+.portal-app .home-profile-page {
+  background: linear-gradient(180deg, #fafafa 0%, #fff 280px);
+}
+
+.portal-app .home-profile-view .home-profile-stat-card,
+.portal-app .home-profile-view .home-profile-contact-card,
+.portal-app .home-profile-view .home-profile-about-card {
+  border-color: #ebebeb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.portal-app .home-profile-view h1 {
+  color: var(--msc-heading);
+  font-family: 'Rubik', sans-serif;
+}
+
+/* Standard 16:9 frame for all home images (cropped at upload to 1280×720) */
+.home-image-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: hsl(var(--muted));
+}
+
+.home-image-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

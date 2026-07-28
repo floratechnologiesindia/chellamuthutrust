@@ -67,6 +67,8 @@ export interface Resident {
   category: ResidentCategory;
   special_needs?: string;
   photo_url?: string;
+  admission_date?: string;
+  discharge_date?: string;
   status: ResidentStatus;
   created_at: string;
   updated_at: string;
@@ -194,12 +196,37 @@ export interface EmployeeStats {
   trend: number[];
 }
 
-export type NotificationType = 
-  | 'donation_reminder' 
-  | 'new_need_posted' 
-  | 'task_assigned' 
-  | 'task_due' 
-  | 'recurring_payment_due';
+export type NotificationType =
+  | 'donation_reminder'
+  | 'new_need_posted'
+  | 'task_assigned'
+  | 'task_due'
+  | 'recurring_payment_due'
+  | 'payment_successful'
+  | 'payment_failed'
+  | 'balance_due'
+  | 'pay_later_received'
+  | 'booking_confirmed'
+  | 'booking_declined'
+  | 'need_sponsored'
+  | 'need_fulfilled'
+  | 'work_completed'
+  | 'receipt_ready'
+  | 'milestone'
+  | 'recurring_due_soon'
+  | 'recurring_overdue'
+  | 'recurring_received'
+  | 'recurring_ended'
+  | 'calendar_reminder'
+  | 'open_slots_digest'
+  | 'anniversary'
+  | 'tax_summary'
+  | 'account_security'
+  | 'welcome'
+  | 'food_slot_booking_request'
+  | 'food_recurring_pledge'
+  | 'food_recurring_due_soon'
+  | 'food_recurring_overdue';
 
 export interface Notification {
   id: string;

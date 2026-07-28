@@ -457,10 +457,10 @@ const NeedDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Home Info */}
+            {/* Project Info */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Home Details</CardTitle>
+                <CardTitle className="text-base">Project Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">

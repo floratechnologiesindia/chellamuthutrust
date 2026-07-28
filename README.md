@@ -1,73 +1,150 @@
-# Welcome to your Lovable project
+# Chellamuthu Connect
 
-## Project info
+Charity management and donor engagement platform for M.S. Chellamuthu Trust — built as a **MERN stack** application with Docker support for dev and production.
 
-**URL**: https://lovable.dev/projects/31668c86-0d5c-4db4-9e50-3f3f55a2f6f5
+## Stack
 
-## How can I edit this code?
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite, shadcn/ui, Tailwind CSS |
+| API | Node.js, Express, TypeScript |
+| Database | MongoDB (Mongoose) |
+| Auth | JWT (bcrypt password hashing) |
+| Containers | Docker Compose (dev + prod) |
 
-There are several ways of editing your application.
+## Project Structure
 
-**Use Lovable**
+```
+├── src/                    # React frontend
+├── server/                 # Express API (MERN backend)
+├── docker/                 # Nginx + startup scripts (prod)
+├── docker-compose.dev.yml  # Dev: MongoDB + API + Vite
+├── docker-compose.prod.yml # Prod: MongoDB + API + Nginx
+└── Dockerfile              # Production multi-stage build
+```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/31668c86-0d5c-4db4-9e50-3f3f55a2f6f5) and start prompting.
+## Quick Start (Local)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### 1. Install dependencies
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+npm install
+npm install --prefix server
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 2. Configure environment
 
-# Step 3: Install the necessary dependencies.
-npm i
+```sh
+cp .env.example .env
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 3. Start MongoDB
+
+Use Docker or a local MongoDB instance:
+
+```sh
+docker run -d -p 27017:27017 --name chellamuthu-mongo mongo:7
+```
+
+### 4. Seed the database
+
+```sh
+npm run seed          # first-time seed
+npm run seed:fresh    # wipe and reseed
+```
+
+### 5. Run API + frontend
+
+```sh
+# Terminal 1 — API (port 3001)
+npm run dev:api
+
+# Terminal 2 — Frontend (port 8080)
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Default accounts (after `npm run seed`):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+| Role | Email |
+|------|-------|
+| Super Admin | `superadmin@chellamuthu.local` |
+| Admin | `admin@chellamuthu.local` |
+| Finance | `finance@chellamuthu.local` |
+| Employee | `employee@chellamuthu.local` |
+| Warden | `warden@chellamuthu.local` |
+| Donor | `donor@chellamuthu.local` |
 
-**Use GitHub Codespaces**
+Password for all: `Chellamuthu@2026`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Dual Portals
 
-## What technologies are used for this project?
+This CRM runs as **two separate web panels** on different subdomains:
 
-This project is built with:
+| Portal | Production URL | Local URL | Purpose |
+|--------|----------------|-----------|---------|
+| **Donor** | `donor.msctrust.com` | http://donor.localhost:8080 | Donations, sponsor needs, food calendar, My Account |
+| **App (staff)** | `app.msctrust.com` | http://app.localhost:8080 | Admin, warden, finance, operations |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The marketing website lives at [msctrust.org](https://msctrust.org). Donors are redirected from the website into the donor portal — the panel header includes the same site navigation so the experience feels continuous.
 
-## How can I deploy this project?
+**Local subdomain setup:** Modern browsers resolve `*.localhost` automatically. Use only:
 
-Simply open [Lovable](https://lovable.dev/projects/31668c86-0d5c-4db4-9e50-3f3f55a2f6f5) and click on Share -> Publish.
+- http://donor.localhost:8080 — donor portal
+- http://app.localhost:8080 — staff portal
 
-## Can I connect a custom domain to my Lovable project?
+Plain `http://localhost:8080` automatically redirects to the correct subdomain (staff paths → `app.localhost`, donor paths → `donor.localhost`).
 
-Yes, you can!
+## Docker Development
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```sh
+npm run docker:dev
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Services:
+- Frontend: http://localhost:8080
+- API: http://localhost:3001
+- MongoDB: localhost:27017
+
+## Docker Production
+
+```sh
+cp .env.example .env
+# Set JWT_SECRET and other secrets in .env
+npm run docker:prod
+```
+
+App served at http://localhost (port 80) with Nginx proxying `/api` and `/uploads` to the Express server.
+
+## API Endpoints
+
+All REST endpoints are under `/api`:
+
+- `POST /api/auth/login`, `/register`, `/forgot-password`, `/reset-password`
+- `GET /api/auth/me`
+- CRUD resources: `/api/trusts`, `/api/homes`, `/api/needs`, `/api/donations`, etc.
+- `GET /api/donors` — donors with donation stats
+- `POST /api/create-razorpay-order`, `/verify-razorpay-payment`
+- `POST /api/send-donor-report`, `/send-whatsapp`
+- `POST /api/storage/:bucket/upload` — file uploads
+
+## Environment Variables
+
+See `.env.example` for the full list. Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Frontend API base URL (default: `/api`) |
+| `VITE_WEBSITE_URL` | Public website URL (default: `https://msctrust.org`) |
+| `VITE_DONOR_PORTAL_URL` | Donor panel URL (default: `http://donor.localhost:8080`) |
+| `VITE_APP_PORTAL_URL` | Staff panel URL (default: `http://app.localhost:8080`) |
+| `MONGODB_URI` | MongoDB connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Payment gateway |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Email notifications |
+| `WATI_API_ENDPOINT` / `WATI_ACCESS_TOKEN` | WhatsApp integration |
+
+## Migration from Supabase
+
+The frontend uses an API compatibility layer (`src/integrations/supabase/client.ts`) that routes all former Supabase calls to the Express API. No UI changes were required — all hooks and components continue to work through the same interface.
+
+**Note:** This is a fresh MongoDB deployment. Existing Supabase/PostgreSQL data must be migrated separately if you need production data continuity.

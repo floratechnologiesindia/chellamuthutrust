@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
+import { getLoginPath, isDonorPortal, DONOR_PORTAL_URL, APP_PORTAL_URL } from '@/lib/portal';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -27,15 +28,20 @@ export const ProtectedRoute = ({
 
   // If authentication is required but user is not authenticated
   if (requireAuth && !isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to={getLoginPath()} state={{ from: location }} replace />;
   }
 
-  // If specific roles are required, check if user has one of them
   if (allowedRoles && allowedRoles.length > 0 && user) {
     if (!allowedRoles.includes(user.role)) {
-      // Redirect to appropriate dashboard based on role
-      const redirectPath = getRedirectPath(user.role);
-      return <Navigate to={redirectPath} replace />;
+      if (user.role === 'donor' && !isDonorPortal()) {
+        window.location.href = `${DONOR_PORTAL_URL}/?tab=account`;
+        return null;
+      }
+      if (user.role !== 'donor' && isDonorPortal()) {
+        window.location.href = APP_PORTAL_URL + getRedirectPath(user.role);
+        return null;
+      }
+      return <Navigate to={getRedirectPath(user.role)} replace />;
     }
   }
 
@@ -55,7 +61,7 @@ const getRedirectPath = (role: UserRole): string => {
     case 'finance':
       return '/finance';
     case 'donor':
-      return '/dashboard';
+      return '/?tab=account';
     default:
       return '/';
   }

@@ -1,17 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase, Session, apiFetch, setAuthSession } from '@/integrations/supabase/client';
 import { UserRole } from '@/types';
+import { getDonorDisplayEmail } from '@/lib/donorEmail';
+import { formatUserDisplayName } from '@/lib/roleLabels';
 
 interface UserProfile {
   id: string;
   name: string;
   email: string;
+  email_verified?: boolean;
   phone?: string;
   avatar_url?: string;
   status: string;
   trust_id?: string;
   home_id?: string;
+  assigned_project_ids?: string[];
   role: UserRole;
 }
 
@@ -20,12 +23,33 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: UserRole }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  verifyDonorOtp: (phone: string, otp: string) => Promise<{ success: boolean; error?: string; role?: UserRole; userId?: string; isNewUser?: boolean }>;
+  refreshUser: () => Promise<UserProfile | null>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function mapApiProfile(profile: Record<string, unknown>): UserProfile {
+  const displayEmail = getDonorDisplayEmail(profile.email as string | null | undefined);
+  return {
+    id: String(profile.id),
+    name: formatUserDisplayName(String(profile.name || '')),
+    email: displayEmail || '',
+    email_verified: Boolean(profile.email_verified) && Boolean(displayEmail),
+    phone: profile.phone as string | undefined,
+    avatar_url: profile.avatar_url as string | undefined,
+    status: String(profile.status || 'active'),
+    trust_id: profile.trust_id as string | undefined,
+    home_id: profile.home_id as string | undefined,
+    assigned_project_ids: Array.isArray(profile.assigned_project_ids)
+      ? (profile.assigned_project_ids as string[])
+      : undefined,
+    role: (profile.role as UserRole) || 'donor',
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -34,7 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Fetch profile
+      const meRes = await apiFetch('/api/auth/me');
+      if (meRes.ok) {
+        const profile = await meRes.json();
+        if (profile?.id === userId) {
+          return mapApiProfile(profile as Record<string, unknown>);
+        }
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -51,30 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
-      // Fetch user role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const userRole = ((profile as { role?: UserRole }).role) || 'donor';
+      const p = profile as Record<string, unknown>;
+      p.role = userRole;
 
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-      }
-
-      const userRole = (roleData?.role as UserRole) || 'donor';
-
-      return {
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        avatar_url: profile.avatar_url,
-        status: profile.status,
-        trust_id: profile.trust_id,
-        home_id: profile.home_id,
-        role: userRole,
-      } as UserProfile;
+      return mapApiProfile(p);
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
       return null;
@@ -88,7 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(currentSession);
         
         if (currentSession?.user) {
-          // Defer Supabase calls with setTimeout to avoid deadlock
           setTimeout(() => {
             fetchUserProfile(currentSession.user.id).then(profile => {
               setUser(profile);
@@ -118,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; role?: UserRole }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -129,12 +140,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
+      let role: UserRole | undefined;
       if (data.user) {
         const profile = await fetchUserProfile(data.user.id);
         setUser(profile);
+        role = profile?.role;
       }
 
-      return { success: true };
+      return { success: true, role };
     } catch (error: any) {
       return { success: false, error: error.message || 'An unexpected error occurred' };
     }
@@ -176,6 +189,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const verifyDonorOtp = async (phone: string, otp: string): Promise<{ success: boolean; error?: string; role?: UserRole; userId?: string; isNewUser?: boolean }> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ phone, otp });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const session = data.session;
+      if (session) {
+        setSession(session);
+      }
+
+      if (data.user) {
+        const apiUser = data.user as {
+          id: string;
+          name?: string;
+          email?: string | null;
+          phone?: string;
+          role?: UserRole;
+          status?: string;
+          email_verified?: boolean;
+          is_new_user?: boolean;
+        };
+        const normalizedPhone = phone.replace(/\D/g, '').replace(/^91/, '').replace(/^0/, '').slice(-10);
+
+        setUser(mapApiProfile({
+          ...apiUser,
+          phone: apiUser.phone || normalizedPhone,
+        } as Record<string, unknown>));
+
+        const profile = await fetchUserProfile(apiUser.id);
+        if (profile) {
+          setUser(profile);
+          return {
+            success: true,
+            role: profile.role,
+            userId: apiUser.id,
+            isNewUser: Boolean(apiUser.is_new_user),
+          };
+        }
+
+        return {
+          success: true,
+          role: apiUser.role || 'donor',
+          userId: apiUser.id,
+          isNewUser: Boolean(apiUser.is_new_user),
+        };
+      }
+
+      return { success: false, error: 'Verification failed' };
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : 'Verification failed' };
+    }
+  };
+
+  const refreshUser = useCallback(async (): Promise<UserProfile | null> => {
+    try {
+      const res = await apiFetch('/api/auth/me');
+      if (!res.ok) return null;
+      const profile = await res.json();
+      const mapped = mapApiProfile(profile as Record<string, unknown>);
+      setUser(mapped);
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        setAuthSession(token, { id: mapped.id, email: mapped.email || '' });
+      }
+      return mapped;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -189,7 +274,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated: !!user && !!session, 
       isLoading, 
       login, 
-      register, 
+      register,
+      verifyDonorOtp,
+      refreshUser,
       logout,
     }}>
       {children}

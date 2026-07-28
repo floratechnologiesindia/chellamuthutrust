@@ -221,7 +221,7 @@ export const SuperAdminNeedsSection = () => {
 
         {/* Filters */}
         <div className="space-y-4">
-          {/* Search and Trust/Home Filter Row */}
+          {/* Search and Trust/Project Filter Row */}
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -247,10 +247,10 @@ export const SuperAdminNeedsSection = () => {
             </Select>
             <Select value={homeFilter} onValueChange={setHomeFilter}>
               <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="All Homes" />
+                <SelectValue placeholder="All Projects" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Homes</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
                 {homes.map(home => (
                   <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
                 ))}
@@ -350,7 +350,7 @@ export const SuperAdminNeedsSection = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Home</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Qty</TableHead>

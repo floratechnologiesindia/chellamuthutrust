@@ -67,6 +67,13 @@ export const ResidentCard = ({ resident, onEdit, onDelete }: ResidentCardProps) 
                 <p className="text-sm text-muted-foreground">
                   {resident.age} years • {resident.gender}
                 </p>
+                {(resident.admission_date || resident.discharge_date) && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {resident.admission_date ? `In: ${resident.admission_date}` : null}
+                    {resident.admission_date && resident.discharge_date ? ' · ' : null}
+                    {resident.discharge_date ? `Out: ${resident.discharge_date}` : null}
+                  </p>
+                )}
               </div>
               <div className="flex gap-1">
                 {getCategoryBadge(resident.category)}

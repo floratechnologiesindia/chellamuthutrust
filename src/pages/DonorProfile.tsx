@@ -14,6 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ArrowLeft, User, MapPin, FileText, Edit, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { isDonorPortal } from '@/lib/portal';
+import { cn } from '@/lib/utils';
+import { DonorReceiptsSection } from '@/components/donor/DonorReceiptsSection';
+import { DonorEmailVerify } from '@/components/donor/DonorEmailVerify';
+import { getDonorDisplayEmail, hasVerifiedDonorEmail } from '@/lib/donorEmail';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -32,11 +37,14 @@ const DONOR_CATEGORIES = [
   { value: 'csr', label: 'CSR Partner', color: 'bg-red-500' },
 ];
 
-const DonorProfile = () => {
+const DonorProfile = ({ embedded = false }: { embedded?: boolean }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const updateProfile = useUpdateDonorProfile();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const donorStyled = embedded || isDonorPortal();
+  const displayEmail = getDonorDisplayEmail(user?.email);
+  const emailVerified = hasVerifiedDonorEmail(user);
   
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -89,7 +97,8 @@ const DonorProfile = () => {
     }
 
     try {
-      await updateProfile.mutateAsync(formData);
+      const { donor_category, ...profileWithoutCategory } = formData;
+      await updateProfile.mutateAsync(donorStyled ? profileWithoutCategory : formData);
       setIsEditOpen(false);
       toast.success('Profile updated successfully');
     } catch (error) {
@@ -115,24 +124,39 @@ const DonorProfile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container py-8 max-w-4xl">
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      <div className={embedded ? 'donor-container py-8 max-w-4xl mx-auto' : 'container py-8 max-w-4xl'}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-display font-bold">My Profile</h1>
-              <p className="text-muted-foreground text-sm">View and manage your account details</p>
-            </div>
+        {embedded ? (
+          <div className="flex justify-end mb-6">
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              className="donor-btn donor-btn-primary inline-flex items-center gap-2 px-5 py-2.5"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Profile
+            </button>
           </div>
-          <Button onClick={() => setIsEditOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Profile
-          </Button>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/?tab=account')}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-display font-bold">My Profile</h1>
+                <p className="text-muted-foreground text-sm">View and manage your account details</p>
+              </div>
+            </div>
+            <Button onClick={() => setIsEditOpen(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
+          </div>
+        )}
+
+        <DonorEmailVerify />
 
         {/* Profile Header Card */}
         <Card className="mb-6">
@@ -143,10 +167,14 @@ const DonorProfile = () => {
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-semibold">{user?.name}</h2>
-                <p className="text-muted-foreground">{user?.email}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  {getCategoryBadge((user as any)?.donor_category)}
-                </div>
+                <p className="text-muted-foreground">
+                  {emailVerified ? displayEmail : displayEmail ? `${displayEmail} (not verified)` : 'Email not added'}
+                </p>
+                {!donorStyled && (
+                  <div className="flex items-center gap-2 mt-2">
+                    {getCategoryBadge((user as any)?.donor_category)}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -162,13 +190,15 @@ const DonorProfile = () => {
           </CardHeader>
           <CardContent>
             <InfoRow label="Full Name" value={user?.name} />
-            <InfoRow label="Email" value={user?.email} />
+            <InfoRow label="Email" value={emailVerified ? displayEmail : displayEmail ? `${displayEmail} (pending verification)` : null} />
             <InfoRow label="Phone" value={user?.phone} />
             <InfoRow label="Organization" value={(user as any)?.organization} />
-            <div className="flex flex-col sm:flex-row sm:items-center py-2">
-              <span className="text-sm text-muted-foreground sm:w-40 shrink-0">Donor Category</span>
-              <span>{getCategoryBadge((user as any)?.donor_category) || '-'}</span>
-            </div>
+            {!donorStyled && (
+              <div className="flex flex-col sm:flex-row sm:items-center py-2">
+                <span className="text-sm text-muted-foreground sm:w-40 shrink-0">Donor Category</span>
+                <span>{getCategoryBadge((user as any)?.donor_category) || '-'}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -204,185 +234,246 @@ const DonorProfile = () => {
           </CardContent>
         </Card>
 
+        <DonorReceiptsSection embedded={embedded} />
+
         {/* Edit Dialog */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Profile</DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-6 py-4">
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-sm text-muted-foreground">Personal Information</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+          <DialogContent
+            className={cn(
+              'max-w-2xl max-h-[90vh] overflow-y-auto',
+              donorStyled && 'portal-donor donor-profile-dialog gap-0 p-0 border-0',
+            )}
+          >
+            <div className={cn(donorStyled && 'p-6')}>
+              <DialogHeader className={donorStyled ? 'text-left mb-2' : undefined}>
+                <DialogTitle className={donorStyled ? 'donor-profile-dialog-title' : undefined}>
+                  Edit Profile
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <h3 className={donorStyled ? 'donor-profile-dialog-section' : 'font-medium text-sm text-muted-foreground'}>
+                    Personal Information
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input
+                        id="name"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        placeholder="+91 98765 43210"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="organization">Organization</Label>
+                      <Input
+                        id="organization"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.organization}
+                        onChange={(e) => handleInputChange('organization', e.target.value)}
+                      />
+                    </div>
+                    {!donorStyled && (
+                      <div className="space-y-2">
+                        <Label htmlFor="donor_category">Donor Category</Label>
+                        <Select
+                          value={formData.donor_category}
+                          onValueChange={(value) => handleInputChange('donor_category', value)}
+                        >
+                          <SelectTrigger className={donorStyled ? 'donor-input h-11' : undefined}>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent className={donorStyled ? 'portal-donor donor-select-menu' : undefined}>
+                            {DONOR_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Address Information */}
+                <div className="space-y-4">
+                  <h3 className={donorStyled ? 'donor-profile-dialog-section' : 'font-medium text-sm text-muted-foreground'}>
+                    Address Information
+                  </h3>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
+                    <Label htmlFor="address">Address</Label>
+                    <Textarea
+                      id="address"
+                      className={donorStyled ? 'donor-input min-h-[80px]' : undefined}
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      rows={2}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      placeholder="+91 98765 43210"
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Select
+                        value={formData.state}
+                        onValueChange={(value) => handleInputChange('state', value)}
+                      >
+                        <SelectTrigger className={donorStyled ? 'donor-input h-11' : undefined}>
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                        <SelectContent className={donorStyled ? 'portal-donor donor-select-menu' : undefined}>
+                          {INDIAN_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pincode">Pincode</Label>
+                      <Input
+                        id="pincode"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.pincode}
+                        onChange={(e) => handleInputChange('pincode', e.target.value)}
+                        placeholder="600001"
+                        maxLength={6}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <h3 className={donorStyled ? 'donor-profile-dialog-section' : 'font-medium text-sm text-muted-foreground'}>
+                    Additional Information
+                  </h3>
+
+                  <div
+                    className={cn(
+                      'flex items-center space-x-3 p-4 rounded-lg',
+                      donorStyled
+                        ? 'donor-profile-80g-box'
+                        : 'border border-border bg-muted/30',
+                    )}
+                  >
+                    <Checkbox
+                      id="requires_80g"
+                      checked={formData.requires_80g}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, requires_80g: checked === true }))
+                      }
                     />
+                    <div className="flex-1">
+                      <Label htmlFor="requires_80g" className="font-medium cursor-pointer">
+                        80G Certificate Required
+                      </Label>
+                      <p className={donorStyled ? 'donor-profile-dialog-hint mt-1' : 'text-sm text-muted-foreground'}>
+                        If checked, PAN and Aadhaar are required for tax exemption
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="pan_number">
+                        PAN Number {formData.requires_80g ? '*' : ''}
+                      </Label>
+                      <Input
+                        id="pan_number"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.pan_number}
+                        onChange={(e) => handleInputChange('pan_number', e.target.value.toUpperCase())}
+                        placeholder="ABCDE1234F"
+                        maxLength={10}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="aadhar_number">
+                        Aadhaar Number {formData.requires_80g ? '*' : ''}
+                      </Label>
+                      <Input
+                        id="aadhar_number"
+                        className={donorStyled ? 'donor-input h-11' : undefined}
+                        value={formData.aadhar_number}
+                        onChange={(e) =>
+                          handleInputChange('aadhar_number', e.target.value.replace(/\D/g, ''))
+                        }
+                        placeholder="123456789012"
+                        maxLength={12}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="organization">Organization</Label>
-                    <Input
-                      id="organization"
-                      value={formData.organization}
-                      onChange={(e) => handleInputChange('organization', e.target.value)}
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      className={donorStyled ? 'donor-input min-h-[96px]' : undefined}
+                      value={formData.notes}
+                      onChange={(e) => handleInputChange('notes', e.target.value)}
+                      rows={3}
+                      placeholder="Any additional information..."
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="donor_category">Donor Category</Label>
-                    <Select
-                      value={formData.donor_category}
-                      onValueChange={(value) => handleInputChange('donor_category', value)}
+                </div>
+              </div>
+
+              <DialogFooter className={donorStyled ? 'gap-3 sm:justify-end pt-2' : undefined}>
+                {donorStyled ? (
+                  <>
+                    <button
+                      type="button"
+                      className="donor-btn donor-btn-outline px-6 py-2.5"
+                      onClick={() => setIsEditOpen(false)}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DONOR_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address Information */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-sm text-muted-foreground">Address Information</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    rows={2}
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => handleInputChange('city', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Select
-                      value={formData.state}
-                      onValueChange={(value) => handleInputChange('state', value)}
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="donor-btn donor-btn-primary px-6 py-2.5 inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                      onClick={handleSave}
+                      disabled={updateProfile.isPending}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INDIAN_STATES.map(state => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pincode">Pincode</Label>
-                    <Input
-                      id="pincode"
-                      value={formData.pincode}
-                      onChange={(e) => handleInputChange('pincode', e.target.value)}
-                      placeholder="600001"
-                      maxLength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Information */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-sm text-muted-foreground">Additional Information</h3>
-                
-                {/* 80G Checkbox */}
-                <div className="flex items-center space-x-3 p-4 border border-border rounded-lg bg-muted/30">
-                  <Checkbox
-                    id="requires_80g"
-                    checked={formData.requires_80g}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, requires_80g: checked === true }))}
-                  />
-                  <div className="flex-1">
-                    <Label htmlFor="requires_80g" className="font-medium cursor-pointer">
-                      80G Certificate Required
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      If checked, PAN and Aadhaar are required for tax exemption
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="pan_number">
-                      PAN Number {formData.requires_80g ? '*' : ''}
-                    </Label>
-                    <Input
-                      id="pan_number"
-                      value={formData.pan_number}
-                      onChange={(e) => handleInputChange('pan_number', e.target.value.toUpperCase())}
-                      placeholder="ABCDE1234F"
-                      maxLength={10}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="aadhar_number">
-                      Aadhaar Number {formData.requires_80g ? '*' : ''}
-                    </Label>
-                    <Input
-                      id="aadhar_number"
-                      value={formData.aadhar_number}
-                      onChange={(e) => handleInputChange('aadhar_number', e.target.value.replace(/\D/g, ''))}
-                      placeholder="123456789012"
-                      maxLength={12}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    rows={3}
-                    placeholder="Any additional information..."
-                  />
-                </div>
-              </div>
+                      {updateProfile.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave} disabled={updateProfile.isPending}>
+                      {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
             </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={updateProfile.isPending}>
-                {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

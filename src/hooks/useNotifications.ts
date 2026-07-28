@@ -1,8 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
-
-type NotificationType = Database['public']['Enums']['notification_type'];
+import type { NotificationType } from '@/types';
 
 export interface Notification {
   id: string;
@@ -11,10 +9,17 @@ export interface Notification {
   title: string;
   message: string;
   is_read: boolean;
+  dedupe_key?: string | null;
   created_at: string;
 }
 
-export function useNotifications(userId?: string | null) {
+export const NOTIFICATION_POLL_MS = 8_000;
+
+export function invalidateDonorNotifications(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: ['notifications'] });
+}
+
+export function useNotifications(userId?: string | null, options?: { poll?: boolean }) {
   return useQuery({
     queryKey: ['notifications', userId],
     queryFn: async () => {
@@ -30,26 +35,21 @@ export function useNotifications(userId?: string | null) {
       return data as Notification[];
     },
     enabled: !!userId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: options?.poll ? NOTIFICATION_POLL_MS : false,
+    refetchIntervalInBackground: true,
   });
 }
 
-export function useUnreadNotificationCount(userId?: string | null) {
-  return useQuery({
-    queryKey: ['notifications-unread-count', userId],
-    queryFn: async () => {
-      if (!userId) return 0;
-
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('is_read', false);
-
-      if (error) throw error;
-      return count || 0;
-    },
-    enabled: !!userId,
-  });
+export function useUnreadNotificationCount(userId?: string | null, options?: { poll?: boolean }) {
+  const { data } = useNotifications(userId, options);
+  const notifications = Array.isArray(data) ? data : [];
+  return {
+    data: notifications.filter((n) => !n.is_read).length,
+    isLoading: false,
+    isError: false,
+  };
 }
 
 export function useMarkNotificationRead() {
@@ -66,7 +66,6 @@ export function useMarkNotificationRead() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
 }
@@ -76,17 +75,26 @@ export function useMarkAllNotificationsRead() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
-        .update({ is_read: true })
+        .select('*')
         .eq('user_id', userId)
         .eq('is_read', false);
 
       if (error) throw error;
+
+      const unread = (data as Notification[]) ?? [];
+      await Promise.all(
+        unread.map((notification) =>
+          supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('id', notification.id),
+        ),
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
 }
@@ -105,7 +113,6 @@ export function useDeleteNotification() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
 }
@@ -136,7 +143,6 @@ export function useCreateNotification() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['notifications', data.user_id] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count', data.user_id] });
     },
   });
 }

@@ -49,9 +49,9 @@ const SuperAdminDashboard = () => {
             <p className="text-muted-foreground mt-1">Platform-wide overview and analytics</p>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
-            <Button onClick={() => navigate('/super-admin/homes/new')}>
+            <Button onClick={() => navigate('/super-admin/projects/new')}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Home
+              Add Project
             </Button>
           </div>
         </div>
@@ -62,7 +62,7 @@ const SuperAdminDashboard = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Homes</p>
+                  <p className="text-sm text-muted-foreground">Total Projects</p>
                   {loadingStats ? (
                     <Skeleton className="h-8 w-16 mt-1" />
                   ) : (
@@ -201,14 +201,14 @@ const SuperAdminDashboard = () => {
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Homes Overview */}
+          {/* Projects Overview */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Home className="h-5 w-5" />
-                Homes Overview
+                Projects Overview
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/super-admin/homes')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/super-admin/projects')}>
                 View All <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </CardHeader>
@@ -244,7 +244,7 @@ const SuperAdminDashboard = () => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <p className="font-semibold text-foreground">{trust.homesCount} Homes</p>
+                          <p className="font-semibold text-foreground">{trust.homesCount} Projects</p>
                           <p className="text-sm text-muted-foreground">{trust.openNeedsCount} open needs</p>
                         </div>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -253,7 +253,7 @@ const SuperAdminDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No homes found</p>
+                <p className="text-muted-foreground text-center py-8">No projects found</p>
               )}
             </CardContent>
           </Card>
@@ -320,10 +320,10 @@ const SuperAdminDashboard = () => {
                 <Button 
                   variant="outline" 
                   className="h-auto py-4 flex flex-col items-center gap-2"
-                  onClick={() => navigate('/super-admin/homes/new')}
+                  onClick={() => navigate('/super-admin/projects/new')}
                 >
                   <Home className="h-5 w-5" />
-                  <span className="text-xs">Add Home</span>
+                  <span className="text-xs">Add Project</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -378,7 +378,7 @@ const SuperAdminDashboard = () => {
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Need</th>
-                      <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Home</th>
+                      <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Project</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Date</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Status</th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">Sponsors</th>

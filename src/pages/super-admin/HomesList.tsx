@@ -109,7 +109,7 @@ const HomesList = () => {
       toast.success(`${homeToDelete.name} has been deleted`);
       queryClient.invalidateQueries({ queryKey: ['homes'] });
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete home');
+      toast.error(error.message || 'Failed to delete project');
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -124,7 +124,7 @@ const HomesList = () => {
 
   const handleLoginAsHome = async (home: any) => {
     if (!home.primary_warden_id) {
-      toast.error('This home has no login credentials set up. Please edit the home to create credentials first.');
+      toast.error('This project has no social worker assigned. Edit the project to assign one.');
       return;
     }
     
@@ -159,12 +159,12 @@ const HomesList = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Home Management</h1>
-            <p className="text-muted-foreground mt-1">Manage all care homes on the platform</p>
+            <h1 className="text-3xl font-bold text-foreground">Project Management</h1>
+            <p className="text-muted-foreground mt-1">Manage all projects on the platform on the platform</p>
           </div>
-          <Button onClick={() => navigate('/super-admin/homes/new')} className="mt-4 md:mt-0">
+          <Button onClick={() => navigate('/super-admin/projects/new')} className="mt-4 md:mt-0">
             <Plus className="h-4 w-4 mr-2" />
-            Add Home
+            Add Project
           </Button>
         </div>
 
@@ -174,7 +174,7 @@ const HomesList = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Homes</p>
+                  <p className="text-sm text-muted-foreground">Total Projects</p>
                   {loadingHomes ? (
                     <Skeleton className="h-8 w-16 mt-1" />
                   ) : (
@@ -243,7 +243,7 @@ const HomesList = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search homes by name, city, or trust..."
+                  placeholder="Search projects by name, city, or trust..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -276,10 +276,10 @@ const HomesList = () => {
           </CardContent>
         </Card>
 
-        {/* Homes Table */}
+        {/* Projects Table */}
         <Card>
           <CardHeader>
-            <CardTitle>All Homes ({filteredHomes.length})</CardTitle>
+            <CardTitle>All Projects ({filteredHomes.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loadingHomes ? (
@@ -292,7 +292,7 @@ const HomesList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Home</TableHead>
+                    <TableHead>Project</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Trust</TableHead>
                     <TableHead>Location</TableHead>
@@ -357,7 +357,7 @@ const HomesList = () => {
                             size="sm"
                             onClick={() => handleLoginAsHome(home)}
                             disabled={impersonatingHomeId === home.id}
-                            title="Login as Home"
+                            title="Login as Social Worker"
                             className="text-primary hover:text-primary"
                           >
                             {impersonatingHomeId === home.id ? (
@@ -369,7 +369,7 @@ const HomesList = () => {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => navigate(`/homes/${home.id}`)}
+                            onClick={() => navigate(`/super-admin/projects/${home.id}`)}
                             title="Preview"
                           >
                             <Eye className="h-4 w-4" />
@@ -377,7 +377,7 @@ const HomesList = () => {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => navigate(`/super-admin/homes/${home.id}/edit`)}
+                            onClick={() => navigate(`/super-admin/projects/${home.id}/edit`)}
                             title="Edit"
                           >
                             <Edit className="h-4 w-4" />
@@ -398,7 +398,7 @@ const HomesList = () => {
                   {filteredHomes.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No homes found matching your search
+                        No projects found matching your search
                       </TableCell>
                     </TableRow>
                   )}
@@ -412,7 +412,7 @@ const HomesList = () => {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Home</AlertDialogTitle>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to delete "{homeToDelete?.name}"? This action cannot be undone and will remove all associated data including residents, needs, and donations.
               </AlertDialogDescription>

@@ -27,6 +27,7 @@ import { format, addDays } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
+import { formatUserRole } from '@/lib/roleLabels';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStaffUsers, useTask, useCreateTask, useUpdateTask } from '@/hooks/useTasks';
 import { supabase } from '@/integrations/supabase/client';
@@ -297,7 +298,7 @@ const TaskForm = () => {
                     <SelectContent>
                       {(staffUsers || []).map(u => (
                         <SelectItem key={u.id} value={u.id}>
-                          {u.name} ({u.role})
+                          {u.name} ({formatUserRole(u.role)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -377,7 +378,7 @@ const TaskForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="home">Home</Label>
+                    <Label htmlFor="home">Project</Label>
                     <Select 
                       value={formData.home_id} 
                       onValueChange={(value) => setFormData(prev => ({ 

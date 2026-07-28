@@ -246,7 +246,7 @@ export function SendToDonorDialog({
           // In-app notification
           const { error } = await supabase.from('notifications').insert({
             user_id: group.donorId,
-            type: 'donation_reminder' as const,
+            type: 'work_completed' as const,
             title: 'Completed Work Report',
             message: fullMessage,
           });

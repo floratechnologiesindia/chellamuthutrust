@@ -111,11 +111,25 @@ const StaffList = () => {
   };
 
   const getAssignment = (staff: UserWithRole) => {
-    if (staff.role === 'warden' && staff.home_name) {
+    if (staff.role === 'warden') {
+      const names =
+        staff.assigned_project_names?.filter(Boolean) ||
+        (staff.home_name ? [staff.home_name] : []);
+      if (names.length === 0) {
+        return <span className="text-sm text-muted-foreground">Not assigned</span>;
+      }
       return (
-        <div className="flex items-center gap-1.5 text-amber-600">
-          <Home className="h-3.5 w-3.5" />
-          <span className="text-sm">{staff.home_name}</span>
+        <div className="flex items-start gap-1.5 text-amber-600">
+          <Home className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span className="text-sm">
+            {names.length === 1 ? names[0] : `${names.length} projects`}
+            {names.length > 1 && (
+              <span className="block text-xs text-muted-foreground font-normal">
+                {names.slice(0, 2).join(', ')}
+                {names.length > 2 ? ` +${names.length - 2} more` : ''}
+              </span>
+            )}
+          </span>
         </div>
       );
     }

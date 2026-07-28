@@ -163,10 +163,10 @@ export const KindDonationBookingList = ({ donor, onBookingComplete }: KindDonati
           <Select value={homeFilter} onValueChange={setHomeFilter}>
             <SelectTrigger className="w-[180px]">
               <Home className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="All Homes" />
+              <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Homes</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
               {homes.map((home) => (
                 <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
               ))}
@@ -187,7 +187,7 @@ export const KindDonationBookingList = ({ donor, onBookingComplete }: KindDonati
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">Date</TableHead>
-                  <TableHead>Home</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Item</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-center">Needed</TableHead>

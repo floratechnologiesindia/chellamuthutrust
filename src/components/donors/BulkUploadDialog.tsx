@@ -344,26 +344,17 @@ export function BulkUploadDialog({ open, onOpenChange }: BulkUploadDialogProps) 
         home_donations: d.home_donations.map(hd => ({ home_id: hd.home_id, amount: hd.amount })),
       }));
 
-      const { data: session } = await supabase.auth.getSession();
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: res, error } = await supabase.functions.invoke('bulk-upload-donors', {
+        body: { donors: batch },
+      });
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/bulk-upload-donors`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ donors: batch }),
-        }
-      );
-
-      const res = await response.json();
-      if (res.created) totalCreated += res.created;
-      if (res.skipped) totalSkipped += res.skipped;
-      if (res.errors?.length) totalErrors.push(...res.errors);
+      if (error) {
+        totalErrors.push(error.message);
+      } else if (res) {
+        if (res.created) totalCreated += res.created;
+        if (res.skipped) totalSkipped += res.skipped;
+        if (res.errors?.length) totalErrors.push(...res.errors);
+      }
 
       setProgress(Math.round(((i + 1) / batches.length) * 100));
     }

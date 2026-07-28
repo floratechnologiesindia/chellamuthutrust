@@ -14,6 +14,7 @@ import {
 import { Task } from '@/types';
 import { useStaffUsers } from '@/hooks/useTasks';
 import { cn } from '@/lib/utils';
+import { formatUserRole } from '@/lib/roleLabels';
 
 interface EmployeeEfficiencyProps {
   tasks: Task[];
@@ -145,8 +146,8 @@ export function EmployeeEfficiency({ tasks }: EmployeeEfficiencyProps) {
                     </Avatar>
                     <div>
                       <CardTitle className="text-lg">{user.name}</CardTitle>
-                      <Badge variant="outline" className="text-xs capitalize mt-1">
-                        {user.role}
+                      <Badge variant="outline" className="text-xs mt-1">
+                        {formatUserRole(user.role)}
                       </Badge>
                     </div>
                   </div>

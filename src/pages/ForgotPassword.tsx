@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { ArrowLeft, Mail } from "lucide-react";
+import { getLoginPath } from "@/lib/portal";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -51,7 +52,7 @@ const ForgotPassword = () => {
               <p className="text-sm text-muted-foreground">
                 We've sent a password reset link to <strong>{email}</strong>. Please check your inbox and spam folder.
               </p>
-              <Link to="/login">
+              <Link to={getLoginPath()}>
                 <Button variant="outline" className="w-full mt-2">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Login
                 </Button>
@@ -69,7 +70,7 @@ const ForgotPassword = () => {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </Button>
-              <Link to="/login" className="block text-center">
+              <Link to={getLoginPath()} className="block text-center">
                 <Button variant="link" type="button">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Login
                 </Button>

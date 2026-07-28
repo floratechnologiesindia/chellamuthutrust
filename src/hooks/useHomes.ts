@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import type { Database } from '@/integrations/supabase/types';
 
 type HomeType = Database['public']['Enums']['home_type'];
@@ -26,12 +27,23 @@ export interface Home {
   year_established: number | null;
   supported_by: string | null;
   contact_details: string | null;
+  facilities?: string | null;
 }
 
 export interface HomeWithTrust extends Home {
+  primary_social_worker?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+  } | null;
   trusts?: {
     id: string;
     name: string;
+    contact_email?: string;
+    contact_phone?: string;
+    description?: string;
+    registration_number?: string;
   } | null;
 }
 
@@ -53,7 +65,10 @@ export function useHomes(trustId?: string | null) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as HomeWithTrust[];
+      return (data as HomeWithTrust[]).map((home) => ({
+        ...home,
+        image_url: normalizeMediaUrl(home.image_url),
+      }));
     },
   });
 }
@@ -69,13 +84,20 @@ export function useHome(homeId: string | null) {
         .select(`
           *,
           trusts (id, name, contact_email, contact_phone, description, registration_number),
-          profiles!homes_primary_warden_id_fkey (id, name, email)
+          primary_warden (id, name, email, phone)
         `)
         .eq('id', homeId)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      const home = data as HomeWithTrust & { primary_warden?: HomeWithTrust['primary_social_worker'] };
+      const primarySocialWorker = home.primary_social_worker ?? home.primary_warden ?? null;
+      return {
+        ...home,
+        image_url: normalizeMediaUrl(home.image_url),
+        primary_social_worker: primarySocialWorker,
+      };
     },
     enabled: !!homeId,
   });

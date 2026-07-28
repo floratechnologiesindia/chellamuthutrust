@@ -24,11 +24,20 @@ import {
   Loader2
 } from 'lucide-react';
 import { useRecurringDonationsWithPayments } from '@/hooks/useRecurringDonations';
+import { useStaffFoodRecurringPledges } from '@/hooks/useFoodRecurringPledges';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { useHomes } from '@/hooks/useHomes';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMonths, addMonths, isBefore, differenceInDays } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+
+const TIME_SLOT_LABELS: Record<string, string> = {
+  MORNING: 'Breakfast',
+  AFTERNOON: 'Lunch',
+  EVENING: 'Dinner',
+  REFRESHMENTS: 'Refreshments',
+  OUTSIDE_FOOD: 'Outside Food',
+};
 
 export function RecurringDonationsTracker() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +46,9 @@ export function RecurringDonationsTracker() {
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
 
   const { data: donations = [], isLoading } = useRecurringDonationsWithPayments();
+  const { data: foodPledges = [], isLoading: foodPledgesLoading } = useStaffFoodRecurringPledges(
+    homeFilter === 'all' ? null : homeFilter,
+  );
   const { data: homes = [] } = useHomes();
   const createNotification = useCreateNotification();
 
@@ -94,7 +106,7 @@ export function RecurringDonationsTracker() {
       // 1. In-app notification
       await createNotification.mutateAsync({
         user_id: donation.donor_id,
-        type: 'donation_reminder',
+        type: 'recurring_due_soon' as const,
         title: 'Payment Reminder',
         message: reminderMessage,
       });
@@ -130,7 +142,7 @@ export function RecurringDonationsTracker() {
             body: {
               donor_email: donation.profiles.email,
               donor_name: donation.profiles.name,
-              subject: `Payment Reminder – ₹${donation.amount_pledged.toLocaleString()}/mo to ${donation.homes?.name || 'Home'}`,
+              subject: `Payment Reminder – ₹${donation.amount_pledged.toLocaleString()}/mo to ${donation.homes?.name || 'Project'}`,
               message_body: reminderMessage,
             },
           });
@@ -224,10 +236,10 @@ export function RecurringDonationsTracker() {
           </Select>
           <Select value={homeFilter} onValueChange={setHomeFilter}>
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Home" />
+              <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Homes</SelectItem>
+              <SelectItem value="all">All Projects</SelectItem>
               {homes.map(home => (
                 <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
               ))}
@@ -322,6 +334,71 @@ export function RecurringDonationsTracker() {
             ))}
           </div>
         )}
+
+        {/* Food recurring pledges */}
+        <div className="mt-8 pt-6 border-t border-border">
+          <h3 className="font-medium mb-3 flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            Food recurring pledges
+          </h3>
+          {foodPledgesLoading ? (
+            <Skeleton className="h-20" />
+          ) : foodPledges.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No food recurring pledges yet</p>
+          ) : (
+            <div className="space-y-2 max-h-[240px] overflow-y-auto">
+              {foodPledges
+                .filter((p) => {
+                  const matchesSearch =
+                    !searchTerm ||
+                    p.donor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    p.homes?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                  const overdue =
+                    p.status === 'ACTIVE' &&
+                    p.next_due_date &&
+                    isBefore(new Date(p.next_due_date), new Date());
+                  const dueSoon =
+                    p.status === 'ACTIVE' &&
+                    p.next_due_date &&
+                    !overdue &&
+                    differenceInDays(new Date(p.next_due_date), new Date()) <= 7;
+                  const matchesStatus =
+                    statusFilter === 'all' ||
+                    (statusFilter === 'overdue' && overdue) ||
+                    (statusFilter === 'due_soon' && dueSoon) ||
+                    (statusFilter === 'active' && p.status === 'ACTIVE' && !overdue && !dueSoon);
+                  return matchesSearch && matchesStatus;
+                })
+                .map((pledge) => {
+                  const overdue =
+                    pledge.status === 'ACTIVE' &&
+                    pledge.next_due_date &&
+                    isBefore(new Date(pledge.next_due_date), new Date());
+                  return (
+                    <div
+                      key={pledge.id}
+                      className="p-3 rounded-lg border border-border flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          {pledge.donor_name || 'Donor'} · {pledge.homes?.name || 'Project'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {pledge.frequency === 'annual' ? 'Annual' : 'Monthly'} ·{' '}
+                          {TIME_SLOT_LABELS[pledge.time_slot] || pledge.time_slot} · ₹
+                          {pledge.amount.toLocaleString()} · {pledge.status}
+                          {pledge.next_due_date
+                            ? ` · Next ${format(new Date(pledge.next_due_date), 'MMM dd, yyyy')}`
+                            : ''}
+                          {overdue ? ' (overdue)' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

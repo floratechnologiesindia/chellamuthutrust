@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ImageCropDialog } from '@/components/homes/ImageCropDialog';
+import { useImageCropQueue } from '@/hooks/useImageCropQueue';
+import { HOME_IMAGE_SIZE_LABEL } from '@/lib/homeImage';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Upload, X, Star, Loader2, ImagePlus } from 'lucide-react';
+import { X, Star, Loader2, ImagePlus } from 'lucide-react';
 import {
   useHomePhotos,
   useAddHomePhoto,
@@ -26,8 +29,6 @@ import {
 } from '@/hooks/useHomePhotos';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/tiff'];
 
 interface PhotoGalleryManagerProps {
   homeId: string;
@@ -45,6 +46,19 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
   const [captionValue, setCaptionValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { enqueueFiles, cropDialogProps, isProcessing } = useImageCropQueue(async (file) => {
+    await addPhoto.mutateAsync({ homeId, file });
+  });
+
+  const handleIncomingFiles = (files: FileList | File[]) => {
+    const { accepted, rejected } = enqueueFiles(files);
+    if (rejected > 0) {
+      toast.error('Only image files (JPG, PNG, WEBP) are allowed. GIFs and PDFs are not supported.');
+    }
+    if (accepted === 0) return;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -55,31 +69,16 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
-    const allFiles = Array.from(e.dataTransfer.files);
-    const files = allFiles.filter((file) => ALLOWED_IMAGE_TYPES.includes(file.type));
-    const rejected = allFiles.filter((file) => !ALLOWED_IMAGE_TYPES.includes(file.type));
-    
-    if (rejected.length > 0) {
-      toast.error('Only image files (JPG, PNG, WEBP) are allowed. GIFs and PDFs are not supported.');
-    }
-
-    for (const file of files) {
-      await addPhoto.mutateAsync({ homeId, file });
-    }
+    handleIncomingFiles(e.dataTransfer.files);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    for (const file of files) {
-      await addPhoto.mutateAsync({ homeId, file });
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      handleIncomingFiles(e.target.files);
     }
   };
 
@@ -97,27 +96,29 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
     return (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="aspect-square rounded-lg" />
+          <Skeleton key={i} className="home-image-frame rounded-lg" />
         ))}
       </div>
     );
   }
 
+  const uploading = addPhoto.isPending || isProcessing;
+
   return (
     <div className="space-y-4">
-      {/* Upload Area */}
       <div
         className={cn(
           'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
           dragActive
             ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+            : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50',
+          uploading && 'pointer-events-none opacity-70',
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !uploading && fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
@@ -127,45 +128,36 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
           className="hidden"
           onChange={handleFileChange}
         />
-        {addPhoto.isPending ? (
+        {uploading ? (
           <div className="flex items-center gap-2">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">Uploading...</span>
+            <span className="text-sm text-muted-foreground">
+              {isProcessing ? 'Crop photo...' : 'Uploading...'}
+            </span>
           </div>
         ) : (
           <>
             <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Drag & drop images here, or click to select
-            </p>
-            <p className="text-xs text-muted-foreground/70">
-              Supports JPG, PNG, WEBP only
-            </p>
+            <p className="text-sm text-muted-foreground">Drag & drop images here, or click to select</p>
+            <p className="text-xs text-muted-foreground/70">Cropped to {HOME_IMAGE_SIZE_LABEL}</p>
           </>
         )}
       </div>
 
-      {/* Photo Grid */}
       {photos.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {photos.map((photo) => (
             <Card key={photo.id} className="group relative overflow-hidden">
               <CardContent className="p-0">
-                <div className="relative aspect-square">
-                  <img
-                    src={photo.url}
-                    alt={photo.caption || 'Home photo'}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="relative home-image-frame rounded-none border-0">
+                  <img src={photo.url} alt={photo.caption || 'Project photo'} />
 
-                  {/* Primary Badge */}
                   {photo.is_primary && (
                     <Badge className="absolute left-2 top-2 bg-primary">
                       <Star className="mr-1 h-3 w-3" /> Primary
                     </Badge>
                   )}
 
-                  {/* Actions Overlay */}
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                     {!photo.is_primary && (
                       <Button
@@ -206,7 +198,6 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
                   </div>
                 </div>
 
-                {/* Caption */}
                 <div className="p-2">
                   {editingCaption === photo.id ? (
                     <div className="flex gap-2">
@@ -221,11 +212,7 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
                           if (e.key === 'Escape') setEditingCaption(null);
                         }}
                       />
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        onClick={() => handleCaptionSave(photo)}
-                      >
+                      <Button size="sm" className="h-8" onClick={() => handleCaptionSave(photo)}>
                         Save
                       </Button>
                     </div>
@@ -249,9 +236,11 @@ export function PhotoGalleryManager({ homeId }: PhotoGalleryManagerProps) {
 
       {photos.length === 0 && (
         <p className="text-center text-sm text-muted-foreground">
-          No photos uploaded yet. Add photos to create a gallery for this home.
+          No photos uploaded yet. Add photos to create a gallery for this project.
         </p>
       )}
+
+      <ImageCropDialog {...cropDialogProps} title="Crop gallery photo" />
     </div>
   );
 }

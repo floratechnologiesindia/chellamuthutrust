@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, Utensils } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActiveProject } from '@/hooks/useActiveProject';
 import { FoodCalendarGrid } from '@/components/food-calendar/FoodCalendarGrid';
 import { FoodSlotLegend } from '@/components/food-calendar/FoodSlotLegend';
 import { FoodSlotDetailPanel } from '@/components/food-calendar/FoodSlotDetailPanel';
@@ -29,6 +30,8 @@ interface Trust {
 export default function FoodCalendar() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const isWarden = user?.role === 'warden';
+  const { homeId: activeHomeId, assignedProjectIds, setActiveProjectId } = useActiveProject();
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
@@ -88,20 +91,24 @@ export default function FoodCalendar() {
   // Auto-select home based on user role
   useEffect(() => {
     if (userProfile) {
-      if (user?.role === 'warden' && userProfile.home_id) {
-        setSelectedHomeId(userProfile.home_id);
+      if (isWarden && activeHomeId) {
+        setSelectedHomeId(activeHomeId);
       } else if (user?.role === 'admin' && userProfile.trust_id) {
         setSelectedTrustId(userProfile.trust_id);
       }
     }
-  }, [userProfile, user?.role]);
+  }, [userProfile, user?.role, isWarden, activeHomeId]);
 
-  // Auto-select first home when trust changes or homes load
+  const visibleHomes = isWarden
+    ? homes.filter((h) => assignedProjectIds.includes(h.id))
+    : homes;
+
+  // Auto-select first home when trust changes or homes load (non-warden)
   useEffect(() => {
-    if (homes.length > 0 && !selectedHomeId) {
-      setSelectedHomeId(homes[0].id);
+    if (!isWarden && visibleHomes.length > 0 && !selectedHomeId) {
+      setSelectedHomeId(visibleHomes[0].id);
     }
-  }, [homes, selectedHomeId]);
+  }, [visibleHomes, selectedHomeId, isWarden]);
 
   // Fetch food slots
   const { data: slots = [], isLoading } = useFoodSlots(
@@ -110,7 +117,7 @@ export default function FoodCalendar() {
     currentDate.getMonth()
   );
 
-  const selectedHome = homes.find((h) => h.id === selectedHomeId);
+  const selectedHome = visibleHomes.find((h) => h.id === selectedHomeId);
 
   const handleSlotClick = (date: Date, timeSlot: FoodTimeSlot, existingSlot?: FoodSlot) => {
     if (isBefore(date, startOfDay(new Date()))) {
@@ -166,13 +173,20 @@ export default function FoodCalendar() {
                 </Select>
               )}
 
-              {/* Home selector */}
-              <Select value={selectedHomeId || ''} onValueChange={setSelectedHomeId}>
+              {/* Project selector */}
+              <Select
+                value={selectedHomeId || ''}
+                onValueChange={(value) => {
+                  setSelectedHomeId(value);
+                  if (isWarden) setActiveProjectId(value);
+                }}
+                disabled={isWarden && assignedProjectIds.length <= 1}
+              >
                 <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Select Home" />
+                  <SelectValue placeholder="Select Project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {homes.map((home) => (
+                  {visibleHomes.map((home) => (
                     <SelectItem key={home.id} value={home.id}>
                       {home.name}
                     </SelectItem>

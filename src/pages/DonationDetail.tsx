@@ -76,7 +76,7 @@ const DonationDetail = () => {
               <h3 className="text-lg font-medium mb-2">Donation not found</h3>
               <p className="text-muted-foreground mb-4">This donation doesn't exist or you don't have access to it.</p>
               <Button asChild>
-                <Link to="/donations">Back to My Donations</Link>
+                <Link to="/?tab=donations">Back to My Donations</Link>
               </Button>
             </CardContent>
           </Card>
@@ -94,7 +94,7 @@ const DonationDetail = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/donations">
+            <Link to="/?tab=donations">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
@@ -110,7 +110,7 @@ const DonationDetail = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Home Info */}
+            {/* Project Info */}
             <Card>
               <CardContent className="p-6">
                 <div className="flex gap-4">
@@ -329,7 +329,7 @@ const DonationDetail = () => {
             donationId={donation.id}
             amount={donation.amount_pledged}
             nextDueDate={donation.next_due_date}
-            homeName={home?.name || 'Home'}
+            homeName={home?.name || 'Project'}
           />
         )}
       </div>

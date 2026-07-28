@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { formatUserDisplayName } from '@/lib/roleLabels';
 import { toast } from 'sonner';
 
 export interface UserWithRole {
@@ -15,6 +16,8 @@ export interface UserWithRole {
   role: 'super_admin' | 'admin' | 'employee' | 'warden' | 'donor' | 'finance';
   home_name?: string | null;
   trust_name?: string | null;
+  assigned_projects?: Array<{ home_id: string; is_primary: boolean; name: string | null; city: string | null }>;
+  assigned_project_names?: string[];
 }
 
 interface CreateUserData {
@@ -41,54 +44,12 @@ export const useUsers = () => {
   return useQuery({
     queryKey: ['users'],
     queryFn: async (): Promise<UserWithRole[]> => {
-      console.log('useUsers: Fetching users...');
-      
-      // Fetch profiles with home and trust names
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          homes:home_id (name),
-          trusts:trust_id (name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (profilesError) {
-        console.error('useUsers: Profiles fetch error:', profilesError);
-        throw profilesError;
-      }
-      
-      console.log('useUsers: Profiles fetched:', profiles?.length);
-
-      // Fetch roles for all users
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) {
-        console.error('useUsers: Roles fetch error:', rolesError);
-        throw rolesError;
-      }
-      
-      console.log('useUsers: Roles fetched:', roles?.length);
-
-      // Map roles to profiles
-      const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
-
-      return (profiles || []).map(profile => ({
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        phone: profile.phone,
-        avatar_url: profile.avatar_url,
-        status: profile.status,
-        trust_id: profile.trust_id,
-        home_id: profile.home_id,
-        created_at: profile.created_at,
-        role: roleMap.get(profile.id) || 'donor',
-        home_name: (profile.homes as any)?.name || null,
-        trust_name: (profile.trusts as any)?.name || null,
-      })) as UserWithRole[];
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      return ((data || []) as UserWithRole[]).map((user) => ({
+        ...user,
+        name: formatUserDisplayName(user.name),
+      }));
     },
   });
 };
@@ -179,7 +140,7 @@ export const useResetPassword = () => {
       }
 
       const response = await supabase.functions.invoke('reset-user-password', {
-        body: { userId, newPassword },
+        body: { userId, password: newPassword },
         headers: {
           Authorization: `Bearer ${token}`,
         },

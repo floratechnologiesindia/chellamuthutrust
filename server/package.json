@@ -1,0 +1,45 @@
+{
+  "name": "chellamuthu-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed": "tsx src/scripts/seed.ts",
+    "seed:fresh": "tsx src/scripts/seed.ts --fresh",
+    "dedupe-food-slots": "tsx src/scripts/dedupe-food-slots.ts",
+    "migrate-project-assignments": "tsx src/scripts/migrate-project-assignments.ts",
+    "migrate-food-recurring-day-of-month": "tsx src/scripts/migrate-food-recurring-day-of-month.ts",
+    "migrate-food-payment-status": "tsx src/scripts/migrate-food-payment-status.ts",
+    "verify-project-assignments": "tsx src/scripts/verify-project-assignments.ts",
+    "clear-placeholder-emails": "tsx src/scripts/clear-placeholder-emails.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.3",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16",
+    "uuid": "^11.0.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.16.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.17",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3"
+  }
+}

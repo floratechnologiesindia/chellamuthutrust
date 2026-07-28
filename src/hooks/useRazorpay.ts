@@ -1,31 +1,69 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { clearBlockingOverlays } from '@/lib/razorpayCheckout';
+import { formatRazorpayContact } from '@/lib/razorpayContact';
+import { getRazorpayDonorEmail } from '@/lib/donorEmail';
+import { reportDonorPaymentFailed } from '@/lib/donorNotifications';
+import { FoodTimeSlot } from '@/hooks/useFoodSlots';
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: unknown;
   }
 }
 
+export interface FoodSlotPaymentContext {
+  food_slot_id?: string;
+  home_id: string;
+  trust_id: string;
+  date: string;
+  time_slot: FoodTimeSlot | string;
+  occasion_type?: string;
+  occasion_note?: string;
+  recurring_frequency?: string;
+  donation_for?: string;
+  event_date?: string;
+  donor_board_name?: string;
+}
+
 interface PaymentParams {
-  amount: number; // in rupees
+  amount: number;
   donationId?: string;
+  foodSlot?: FoodSlotPaymentContext;
   donorName: string;
-  donorEmail: string;
+  donorEmail?: string;
   donorPhone?: string;
   description?: string;
   onSuccess?: (paymentId: string) => void;
   onFailure?: (error: string) => void;
 }
 
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
+};
+
+type RazorpayConstructor = new (options: Record<string, unknown>) => RazorpayInstance;
+
 export function useRazorpay() {
   const [isProcessing, setIsProcessing] = useState(false);
   const queryClient = useQueryClient();
 
+  const invalidateAfterPayment = (foodSlot?: FoodSlotPaymentContext) => {
+    queryClient.invalidateQueries({ queryKey: ['donations'] });
+    queryClient.invalidateQueries({ queryKey: ['donation-payments'] });
+    if (foodSlot) {
+      queryClient.invalidateQueries({ queryKey: ['food-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['donor-food-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['food-slot-booking-requests'] });
+    }
+  };
+
   const initiatePayment = async ({
     amount,
     donationId,
+    foodSlot,
     donorName,
     donorEmail,
     donorPhone,
@@ -35,8 +73,15 @@ export function useRazorpay() {
   }: PaymentParams) => {
     setIsProcessing(true);
 
+    let checkoutOpened = false;
+    let paymentResolved = false;
+
+    const handlePaymentFailure = (message: string) => {
+      void reportDonorPaymentFailed(description || message, amount);
+      onFailure?.(message);
+    };
+
     try {
-      // Step 1: Create order via edge function
       const { data: orderData, error: orderError } = await supabase.functions.invoke(
         'create-razorpay-order',
         {
@@ -46,33 +91,56 @@ export function useRazorpay() {
             donor_name: donorName,
             donor_email: donorEmail,
             donor_phone: donorPhone,
+            food_slot_id: foodSlot?.food_slot_id,
+            home_id: foodSlot?.home_id,
+            trust_id: foodSlot?.trust_id,
+            date: foodSlot?.date,
+            time_slot: foodSlot?.time_slot,
+            occasion_type: foodSlot?.occasion_type,
+            occasion_note: foodSlot?.occasion_note,
+            recurring_frequency: foodSlot?.recurring_frequency,
+            donation_for: foodSlot?.donation_for,
+            event_date: foodSlot?.event_date,
+            donor_board_name: foodSlot?.donor_board_name,
           },
-        }
+        },
       );
 
       if (orderError || !orderData?.order_id) {
         throw new Error(orderError?.message || orderData?.error || 'Failed to create order');
       }
 
-      // Step 2: Open Razorpay checkout
+      const checkoutName = orderData.donor_name || donorName;
+      const checkoutEmail = getRazorpayDonorEmail(orderData.donor_email || donorEmail);
+      const checkoutPhone = formatRazorpayContact(orderData.donor_phone || donorPhone);
+
+      const Razorpay = window.Razorpay as RazorpayConstructor | undefined;
+      if (!Razorpay) {
+        throw new Error('Razorpay SDK not loaded. Please refresh the page.');
+      }
+
       const options = {
         key: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'MS Chellamuthu Trust',
-        description: description || 'Donation Payment',
+        description: description || (foodSlot ? 'Food Sponsorship' : 'Donation Payment'),
         order_id: orderData.order_id,
         prefill: {
-          name: donorName,
-          email: donorEmail,
-          contact: donorPhone || '',
+          name: checkoutName,
+          ...(checkoutEmail ? { email: checkoutEmail } : {}),
+          ...(checkoutPhone ? { contact: checkoutPhone } : {}),
         },
         theme: {
-          color: '#E67E22',
+          color: '#ff6633',
         },
-        handler: async (response: any) => {
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          paymentResolved = true;
           try {
-            // Step 3: Verify payment
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               'verify-razorpay-payment',
               {
@@ -83,21 +151,31 @@ export function useRazorpay() {
                   donation_id: donationId,
                   amount: orderData.amount,
                   payment_date: new Date().toISOString().split('T')[0],
+                  food_slot_id: foodSlot?.food_slot_id,
+                  home_id: foodSlot?.home_id,
+                  trust_id: foodSlot?.trust_id,
+                  date: foodSlot?.date,
+                  time_slot: foodSlot?.time_slot,
+                  food_slot_amount: amount,
+                  occasion_type: foodSlot?.occasion_type,
+                  occasion_note: foodSlot?.occasion_note,
+                  recurring_frequency: foodSlot?.recurring_frequency,
+                  donation_for: foodSlot?.donation_for,
+                  event_date: foodSlot?.event_date,
+                  donor_board_name: foodSlot?.donor_board_name,
                 },
-              }
+              },
             );
 
             if (verifyError || !verifyData?.success) {
               throw new Error(verifyError?.message || verifyData?.error || 'Verification failed');
             }
 
-            // Invalidate queries to refresh data
-            queryClient.invalidateQueries({ queryKey: ['donations'] });
-            queryClient.invalidateQueries({ queryKey: ['donation-payments'] });
-
+            invalidateAfterPayment(foodSlot);
             onSuccess?.(response.razorpay_payment_id);
-          } catch (err: any) {
-            onFailure?.(err.message || 'Payment verification failed');
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Payment verification failed';
+            handlePaymentFailure(message);
           } finally {
             setIsProcessing(false);
           }
@@ -105,24 +183,28 @@ export function useRazorpay() {
         modal: {
           ondismiss: () => {
             setIsProcessing(false);
-            onFailure?.('Payment cancelled by user');
+            if (!checkoutOpened || paymentResolved) return;
+            handlePaymentFailure('Payment cancelled by user');
           },
+          escape: true,
+          backdropclose: false,
         },
       };
 
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK not loaded. Please refresh the page.');
-      }
+      clearBlockingOverlays();
 
-      const razorpay = new window.Razorpay(options);
-      razorpay.on('payment.failed', (response: any) => {
+      const razorpay = new Razorpay(options);
+      razorpay.on('payment.failed', (response) => {
+        paymentResolved = true;
         setIsProcessing(false);
-        onFailure?.(response.error?.description || 'Payment failed');
+        handlePaymentFailure(response.error?.description || 'Payment failed');
       });
       razorpay.open();
-    } catch (err: any) {
+      checkoutOpened = true;
+    } catch (err: unknown) {
       setIsProcessing(false);
-      onFailure?.(err.message || 'Something went wrong');
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      handlePaymentFailure(message);
     }
   };
 

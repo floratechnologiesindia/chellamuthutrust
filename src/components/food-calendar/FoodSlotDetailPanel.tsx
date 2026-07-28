@@ -1,29 +1,44 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sun, CloudSun, Moon, Coffee, Trash2, Loader2, LogIn } from 'lucide-react';
+import { Sun, CloudSun, Moon, Coffee, Trash2, Loader2, Utensils } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import {
-  FoodSlot,
-  FoodSlotWithDonor,
-  FoodTimeSlot,
-  FoodSlotStatus,
-  useCreateFoodSlot,
+import { isDonorPortal } from '@/lib/portal';
+import { DonorFoodSlotCheckout } from '@/components/donor/DonorFoodSlotCheckout';
+import { StaffFoodSlotConfirm } from '@/components/food-calendar/StaffFoodSlotConfirm';
+import { useFoodSlotBookingRequests } from '@/hooks/useFoodSlotBookingRequests';
+import { isSlotBooked, isSlotOpen, getDonorDisplayStatus, getStaffDisplayStatus, staffDisplayLabel, normalizePaymentStatus } from '@/lib/foodSlotUtils';
+import { useCreateFoodSlot,
   useUpdateFoodSlot,
   useDeleteFoodSlot,
   useSponsorFoodSlot,
   useCompleteFoodSlotPayment,
 } from '@/hooks/useFoodSlots';
+import type {
+  FoodSlotWithDonor,
+  FoodTimeSlot,
+  FoodSlotStatus,
+} from '@/hooks/useFoodSlots';
+import { cn } from '@/lib/utils';
+import { useFoodSlotPricingMap } from '@/hooks/useFoodSlotPricing';
+import { formatCurrency } from '@/lib/formatters';
+import type { FoodSlotRazorpayPayRequest } from '@/lib/foodSlotRazorpay';
 
 interface FoodSlotDetailPanelProps {
   open: boolean;
@@ -34,6 +49,8 @@ interface FoodSlotDetailPanelProps {
   homeId: string;
   trustId: string;
   homeName: string;
+  onRazorpayFoodPayment?: (request: FoodSlotRazorpayPayRequest) => void;
+  razorpayProcessing?: boolean;
 }
 
 const slotLabels: Record<FoodTimeSlot, { label: string; icon: React.ReactNode }> = {
@@ -41,6 +58,7 @@ const slotLabels: Record<FoodTimeSlot, { label: string; icon: React.ReactNode }>
   AFTERNOON: { label: 'Lunch', icon: <CloudSun className="h-4 w-4" /> },
   EVENING: { label: 'Dinner', icon: <Moon className="h-4 w-4" /> },
   REFRESHMENTS: { label: 'Refreshments', icon: <Coffee className="h-4 w-4" /> },
+  OUTSIDE_FOOD: { label: 'Outside Food', icon: <Utensils className="h-4 w-4" /> },
 };
 
 const statusLabels: Record<FoodSlotStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -48,6 +66,26 @@ const statusLabels: Record<FoodSlotStatus, { label: string; variant: 'default' |
   BOOKED: { label: 'Booked (Unpaid)', variant: 'default' },
   PAID: { label: 'Paid & Confirmed', variant: 'destructive' },
 };
+
+const donorStatusLabels: Record<'OPEN' | 'BOOKED', string> = {
+  OPEN: 'Open for Sponsorship',
+  BOOKED: 'Booked',
+};
+
+function DonorSlotStatus({ slot }: { slot: FoodSlotWithDonor | null }) {
+  const display = getDonorDisplayStatus(slot);
+  return (
+    <span
+      className={cn(
+        'donor-slot-status',
+        display === 'BOOKED' && 'donor-slot-status-paid',
+        display === 'OPEN' && 'donor-slot-status-need',
+      )}
+    >
+      {donorStatusLabels[display]}
+    </span>
+  );
+}
 
 export function FoodSlotDetailPanel({
   open,
@@ -58,12 +96,14 @@ export function FoodSlotDetailPanel({
   homeId,
   trustId,
   homeName,
+  onRazorpayFoodPayment,
+  razorpayProcessing,
 }: FoodSlotDetailPanelProps) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'warden';
   const isDonor = user?.role === 'donor';
+  const donorCheckout = isDonorPortal() && !isAdmin;
 
   const [note, setNote] = useState(existingSlot?.note || '');
   const [status, setStatus] = useState<FoodSlotStatus>(existingSlot?.status || 'NEED');
@@ -75,6 +115,22 @@ export function FoodSlotDetailPanel({
   const deleteSlot = useDeleteFoodSlot();
   const sponsorSlot = useSponsorFoodSlot();
   const completePayment = useCompleteFoodSlotPayment();
+
+  const { priceMap } = useFoodSlotPricingMap();
+  const dateStr = date ? format(date, 'yyyy-MM-dd') : '';
+  const slotAmount =
+    existingSlot?.amount ?? (timeSlot ? priceMap[timeSlot] : undefined) ?? 75;
+  const { data: pendingRequests = [] } = useFoodSlotBookingRequests(
+    isAdmin && dateStr && timeSlot
+      ? { home_id: homeId, status: 'PENDING' }
+      : undefined,
+  );
+  const cellRequests = pendingRequests.filter(
+    (r) => r.date === dateStr && r.time_slot === timeSlot,
+  );
+
+  const slotOpen = !existingSlot || isSlotOpen(existingSlot.status);
+  const slotBooked = existingSlot && isSlotBooked(existingSlot.status);
 
   const isLoading = isSponsorLoading || createSlot.isPending || updateSlot.isPending || deleteSlot.isPending || sponsorSlot.isPending || completePayment.isPending;
 
@@ -103,7 +159,7 @@ export function FoodSlotDetailPanel({
 
   const handleDelete = () => {
     if (!existingSlot) return;
-    if (existingSlot.status === 'PAID') {
+    if (existingSlot && isSlotBooked(existingSlot.status)) {
       return;
     }
     deleteSlot.mutate(existingSlot.id, { onSuccess: () => onOpenChange(false) });
@@ -169,46 +225,49 @@ export function FoodSlotDetailPanel({
 
   if (!date || !timeSlot) return null;
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            {slotLabels[timeSlot].icon}
-            {slotLabels[timeSlot].label} Slot
-          </SheetTitle>
-          <SheetDescription>
-            {format(date, 'EEEE, MMMM d, yyyy')} • {homeName}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {/* Status Badge */}
-          {existingSlot && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Status:</span>
-              <Badge variant={statusLabels[existingSlot.status].variant}>
-                {statusLabels[existingSlot.status].label}
-              </Badge>
-            </div>
+  const panelBody = (
+    <div className={cn(donorCheckout ? 'space-y-5' : 'mt-6 space-y-6')}>
+      {existingSlot && (
+        <div className={cn('flex items-center gap-2', donorCheckout && 'justify-center')}>
+          {!donorCheckout && (
+            <Badge variant={slotOpen ? 'secondary' : 'default'}>
+              {slotOpen ? 'Open' : staffDisplayLabel(getStaffDisplayStatus(existingSlot))}
+            </Badge>
           )}
+          {donorCheckout && <DonorSlotStatus slot={existingSlot} />}
+        </div>
+      )}
 
-          {/* Donor Details */}
-          {existingSlot?.profiles && (existingSlot.status === 'BOOKED' || existingSlot.status === 'PAID') && (
-            <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
-              <span className="text-sm font-semibold text-foreground">Sponsored by</span>
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{existingSlot.profiles.name}</p>
-                <p className="text-sm text-muted-foreground">{existingSlot.profiles.email}</p>
-                {existingSlot.profiles.phone && (
-                  <p className="text-sm text-muted-foreground">{existingSlot.profiles.phone}</p>
-                )}
-              </div>
-            </div>
+      {existingSlot?.profiles && slotBooked && (
+        <div
+          className={cn(
+            'p-4 space-y-2',
+            donorCheckout ? 'donor-card' : 'rounded-lg border border-border bg-muted/50',
           )}
+        >
+          <span
+            className="text-sm font-semibold"
+            style={donorCheckout ? { color: '#333', fontFamily: 'Rubik, sans-serif' } : undefined}
+          >
+            Sponsored by
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-medium" style={donorCheckout ? { color: '#333' } : undefined}>
+              {existingSlot.profiles.name}
+            </p>
+            <p className="text-sm" style={donorCheckout ? { color: '#666' } : undefined}>
+              {existingSlot.profiles.email}
+            </p>
+            {existingSlot.profiles.phone && (
+              <p className="text-sm" style={donorCheckout ? { color: '#666' } : undefined}>
+                {existingSlot.profiles.phone}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
-          {/* Admin/Social Worker Form */}
-          {isAdmin && (
+      {isAdmin && (
             <>
               {!existingSlot ? (
                 <div className="space-y-4">
@@ -242,19 +301,6 @@ export function FoodSlotDetailPanel({
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={status} onValueChange={(v) => setStatus(v as FoodSlotStatus)}>
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NEED">Open for Sponsorship</SelectItem>
-                        <SelectItem value="BOOKED">Booked (Unpaid)</SelectItem>
-                        <SelectItem value="PAID">Paid & Confirmed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
                     <Label htmlFor="note">Note</Label>
                     <Textarea
                       id="note"
@@ -276,12 +322,32 @@ export function FoodSlotDetailPanel({
                       className="mt-1.5"
                     />
                   </div>
+                  {slotBooked && (
+                    <StaffFoodSlotConfirm
+                      slotId={existingSlot.id}
+                      amount={existingSlot.amount ?? undefined}
+                      onConfirmed={() => onOpenChange(false)}
+                    />
+                  )}
+                  {slotOpen && cellRequests.map((req) => (
+                    <div key={req.id} className="rounded-lg border p-3 space-y-2 text-sm">
+                      <p className="font-medium">Pending request — {req.donor_name || 'Donor'}</p>
+                      <p className="text-muted-foreground">₹{req.amount}{req.notes ? ` · ${req.notes}` : ''}</p>
+                      <StaffFoodSlotConfirm
+                        requestId={req.id}
+                        amount={req.amount}
+                        onConfirmed={() => onOpenChange(false)}
+                      />
+                    </div>
+                  ))}
                   <div className="flex gap-2">
-                    <Button onClick={handleUpdate} disabled={isLoading} className="flex-1">
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Changes
-                    </Button>
-                    {existingSlot.status !== 'PAID' && (
+                    {slotOpen && (
+                      <Button onClick={handleUpdate} disabled={isLoading} className="flex-1">
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Note
+                      </Button>
+                    )}
+                    {slotOpen && (
                       <Button variant="destructive" size="icon" onClick={handleDelete} disabled={isLoading}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -292,8 +358,31 @@ export function FoodSlotDetailPanel({
             </>
           )}
 
-          {/* Donor Actions */}
-          {isDonor && (
+          {/* Donor portal checkout (OTP + manual payment) — guests can verify via OTP */}
+          {donorCheckout && slotOpen && (
+            <DonorFoodSlotCheckout
+              date={date}
+              timeSlot={timeSlot}
+              existingSlot={existingSlot}
+              homeId={homeId}
+              trustId={trustId}
+              homeName={homeName}
+              slotLabel={slotLabels[timeSlot].label}
+              donorId={user?.id}
+              onFinished={() => onOpenChange(false)}
+              onRazorpayPay={onRazorpayFoodPayment}
+              razorpayProcessing={razorpayProcessing}
+            />
+          )}
+
+          {donorCheckout && slotBooked && (
+            <p className="text-sm text-center py-4" style={{ color: '#666' }}>
+              This slot has been booked.
+            </p>
+          )}
+
+          {/* Staff / app portal donor actions */}
+          {!donorCheckout && isDonor && (
             <div className="space-y-4">
               {existingSlot?.note && (
                 <div>
@@ -334,8 +423,8 @@ export function FoodSlotDetailPanel({
             </div>
           )}
 
-          {/* Guest (not logged in) - Prompt login */}
-          {!user && (
+          {/* Guest — non-donor portal */}
+          {!user && !donorCheckout && (
             <div className="text-center space-y-4 py-6">
               {existingSlot?.status === 'PAID' ? (
                 <p className="text-sm text-muted-foreground">
@@ -346,32 +435,76 @@ export function FoodSlotDetailPanel({
                   This slot has been booked and is awaiting payment confirmation.
                 </p>
               ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    This slot is open for sponsorship. Please login to sponsor this meal.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      onOpenChange(false);
-                      navigate('/login', { state: { from: window.location.pathname } });
-                    }}
-                    className="w-full"
-                  >
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login to Sponsor
-                  </Button>
-                </>
+                <p className="text-sm text-muted-foreground">
+                  This slot is open for sponsorship. Please sign in to sponsor this meal.
+                </p>
               )}
             </div>
           )}
 
           {/* Non-donor logged-in users viewing slots without admin rights */}
           {user && !isAdmin && !isDonor && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {existingSlot ? `This slot is ${existingSlot.status === 'PAID' ? 'fully sponsored' : existingSlot.status === 'BOOKED' ? 'booked' : 'open for sponsorship'}.` : 'No food requirement has been created for this slot yet.'}
+            <p
+              className={cn('text-sm text-center py-4', !donorCheckout && 'text-muted-foreground')}
+              style={donorCheckout ? { color: '#666' } : undefined}
+            >
+              {existingSlot
+                ? `This slot is ${existingSlot.status === 'PAID' ? 'fully sponsored' : existingSlot.status === 'BOOKED' ? 'booked' : 'open for sponsorship'}.`
+                : 'No food requirement has been created for this slot yet.'}
             </p>
           )}
-        </div>
+    </div>
+  );
+
+  if (donorCheckout) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="portal-donor donor-food-slot-dialog sm:max-w-lg max-h-[min(90vh,720px)] overflow-y-auto gap-0 p-0 border-0">
+          <div className="p-6 pt-8">
+            <DialogHeader className="text-center sm:text-center space-y-2 pb-5 border-b border-[#e6e6e6]">
+              <DialogTitle className="donor-section-title text-xl flex items-center justify-center gap-2">
+                <span style={{ color: '#ff6633' }}>{slotLabels[timeSlot].icon}</span>
+                {slotLabels[timeSlot].label}
+              </DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-2 text-sm" style={{ color: '#666' }}>
+                  <p>{format(date, 'EEEE, MMMM d, yyyy')} · {homeName}</p>
+                  {slotOpen && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide" style={{ color: '#999' }}>
+                        Amount to pay
+                      </p>
+                      <p
+                        className="text-2xl font-semibold"
+                        style={{ fontFamily: 'Rubik, sans-serif', color: '#333' }}
+                      >
+                        {formatCurrency(slotAmount)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            {panelBody}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            {slotLabels[timeSlot].icon}
+            {slotLabels[timeSlot].label} Slot
+          </SheetTitle>
+          <SheetDescription>
+            {format(date, 'EEEE, MMMM d, yyyy')} • {homeName}
+          </SheetDescription>
+        </SheetHeader>
+        {panelBody}
       </SheetContent>
     </Sheet>
   );

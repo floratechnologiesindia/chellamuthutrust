@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Plus, Trash2, Package, Calendar, Home, IndianRupee } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -14,6 +14,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useActiveProject } from '@/hooks/useActiveProject';
 import { useTrusts, useReportHomes } from '@/hooks/useReportData';
 import { useKindDonations, useCreateKindDonation, useDeleteKindDonation, useKindDonationStats } from '@/hooks/useKindDonations';
 
@@ -30,6 +32,9 @@ const ITEM_TYPES = [
 ];
 
 export default function KindDonations() {
+  const { user } = useAuth();
+  const isWarden = user?.role === 'warden';
+  const { homeId: activeHomeId, assignedProjectIds } = useActiveProject();
   const [selectedTrust, setSelectedTrust] = useState<string>('all');
   const [selectedHome, setSelectedHome] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,9 +60,34 @@ export default function KindDonations() {
     notes: '',
   });
 
-  const filteredHomes = formData.trust_id 
-    ? homes?.filter(h => h.trust_id === formData.trust_id) 
+  const wardenHomes = isWarden
+    ? (homes || []).filter((h) => assignedProjectIds.includes(h.id))
     : homes;
+
+  useEffect(() => {
+    if (isWarden && activeHomeId) {
+      setSelectedHome(activeHomeId);
+      const activeHome = wardenHomes?.find((h) => h.id === activeHomeId);
+      if (activeHome?.trust_id) {
+        setSelectedTrust(activeHome.trust_id);
+      }
+    }
+  }, [isWarden, activeHomeId, wardenHomes]);
+
+  const filteredHomes = formData.trust_id 
+    ? (isWarden ? wardenHomes : homes)?.filter(h => h.trust_id === formData.trust_id) 
+    : (isWarden ? wardenHomes : homes);
+
+  useEffect(() => {
+    if (isWarden && isDialogOpen && activeHomeId) {
+      const activeHome = wardenHomes?.find((h) => h.id === activeHomeId);
+      setFormData((prev) => ({
+        ...prev,
+        trust_id: activeHome?.trust_id || user?.trust_id || prev.trust_id,
+        home_id: activeHomeId,
+      }));
+    }
+  }, [isWarden, isDialogOpen, activeHomeId, wardenHomes, user?.trust_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,24 +144,26 @@ export default function KindDonations() {
             <p className="text-muted-foreground">Track in-kind donations received</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Select value={selectedTrust} onValueChange={(v) => { setSelectedTrust(v); setSelectedHome('all'); }}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filter by Trust" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Trusts</SelectItem>
-                {trusts?.map((trust) => (
-                  <SelectItem key={trust.id} value={trust.id}>{trust.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isWarden && (
+              <Select value={selectedTrust} onValueChange={(v) => { setSelectedTrust(v); setSelectedHome('all'); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Filter by Trust" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Trusts</SelectItem>
+                  {trusts?.map((trust) => (
+                    <SelectItem key={trust.id} value={trust.id}>{trust.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={selectedHome} onValueChange={setSelectedHome}>
               <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Filter by Home" />
+                <SelectValue placeholder="Filter by Project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Homes</SelectItem>
-                {homes?.map((home) => (
+                {!isWarden && <SelectItem value="all">All Projects</SelectItem>}
+                {(isWarden ? wardenHomes : homes)?.map((home) => (
                   <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -163,7 +195,7 @@ export default function KindDonations() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Home *</Label>
+                      <Label>Project *</Label>
                       <Select value={formData.home_id} onValueChange={(v) => setFormData({ ...formData, home_id: v })} disabled={!formData.trust_id}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select" />
@@ -317,7 +349,7 @@ export default function KindDonations() {
                       <TableHead>Donor</TableHead>
                       <TableHead>Item</TableHead>
                       <TableHead>Qty</TableHead>
-                      <TableHead>Home</TableHead>
+                      <TableHead>Project</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Est. Value</TableHead>
                       <TableHead className="w-[50px]"></TableHead>

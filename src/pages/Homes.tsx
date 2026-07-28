@@ -6,12 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Calendar, LayoutDashboard } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const Homes = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const isAdminManage = location.pathname.startsWith('/admin/projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedCity, setSelectedCity] = useState('all');
@@ -37,11 +39,16 @@ const Homes = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Manage Homes</h1>
+            <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
+              {isAdminManage ? 'Manage Projects' : 'Our Projects'}
+            </h1>
             <p className="text-muted-foreground">
-              Add, edit, or view care homes
+              {isAdminManage
+                ? 'Add, edit, or view projects'
+                : 'Browse projects and discover ways to support'}
             </p>
           </div>
+          {isAdminManage && (
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" asChild>
               <Link to={dashboardPath}>
@@ -56,6 +63,8 @@ const Homes = () => {
               </Link>
             </Button>
           </div>
+          )}
+
         </div>
 
         {/* Filters */}
@@ -63,7 +72,7 @@ const Homes = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search homes..."
+              placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -71,7 +80,7 @@ const Homes = () => {
           </div>
           <Select value={selectedType} onValueChange={setSelectedType}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Home type" />
+              <SelectValue placeholder="Project type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
@@ -109,7 +118,7 @@ const Homes = () => {
           </div>
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
-            <h3 className="font-semibold text-lg mb-2">No homes found</h3>
+            <h3 className="font-semibold text-lg mb-2">No projects found</h3>
             <p className="text-muted-foreground">Try adjusting your search or filters</p>
           </div>
         )}

@@ -85,9 +85,9 @@ const AdminDashboard = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" asChild>
-              <Link to="/admin/homes">
+              <Link to="/admin/projects">
                 <Home className="mr-2 h-4 w-4" />
-                Manage Homes
+                Manage Projects
               </Link>
             </Button>
             <Button variant="outline" asChild>
@@ -111,7 +111,7 @@ const AdminDashboard = () => {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Homes</p>
+                  <p className="text-sm text-muted-foreground">Total Projects</p>
                   {isLoading ? <Skeleton className="h-9 w-12" /> : <p className="text-3xl font-bold">{totalHomes}</p>}
                 </div>
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -319,7 +319,7 @@ const AdminDashboard = () => {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">{kd.donor_name || kd.profiles?.name || 'Walk-in Donor'}</p>
                       <p className="text-sm text-muted-foreground">
-                        {kd.homes?.name || 'Unknown Home'} • {formatDate(kd.received_date)}
+                        {kd.homes?.name || 'Unknown Project'} • {formatDate(kd.received_date)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">{kd.item_type}{kd.quantity ? ` × ${kd.quantity}` : ''}</p>
                     </div>
@@ -421,10 +421,10 @@ const AdminDashboard = () => {
         {/* Quick Links */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           <Button variant="outline" className="h-auto py-4 justify-start" asChild>
-            <Link to="/admin/homes">
+            <Link to="/admin/projects">
               <Home className="mr-3 h-5 w-5" />
               <div className="text-left">
-                <p className="font-medium">Manage Homes</p>
+                <p className="font-medium">Manage Projects</p>
                 <p className="text-xs text-muted-foreground">Add, edit, or remove homes</p>
               </div>
             </Link>

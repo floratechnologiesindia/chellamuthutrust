@@ -226,7 +226,7 @@ const Reports = () => {
             .from('donations')
             .select(`amount_pledged, sponsorship_type, status, start_date, profiles:donor_id (name), homes (name)`);
           if (error) throw error;
-          csvContent = 'Donor,Home,Amount,Type,Status,Date\n';
+          csvContent = 'Donor,Project,Amount,Type,Status,Date\n';
           donations?.forEach(d => {
             csvContent += `"${(d.profiles as any)?.name || 'Unknown'}","${(d.homes as any)?.name || 'Unknown'}",${d.amount_pledged},${d.sponsorship_type},${d.status},${d.start_date}\n`;
           });
@@ -238,7 +238,7 @@ const Reports = () => {
             .from('needs')
             .select(`description, status, current_sponsors_count, max_sponsors_allowed, date, homes (name)`);
           if (error) throw error;
-          csvContent = 'Description,Home,Status,Sponsors,Date\n';
+          csvContent = 'Description,Project,Status,Sponsors,Date\n';
           needs?.forEach(n => {
             csvContent += `"${n.description || ''}","${(n.homes as any)?.name || 'Unknown'}",${n.status},${n.current_sponsors_count}/${n.max_sponsors_allowed},${n.date}\n`;
           });
@@ -258,7 +258,7 @@ const Reports = () => {
           break;
         }
         case 'recurring': {
-          csvContent = 'Donor,Home,Amount,Start Date,Next Due Date,Status\n';
+          csvContent = 'Donor,Project,Amount,Start Date,Next Due Date,Status\n';
           recurringSummary?.donations.forEach(d => {
             csvContent += `"${d.donorName}","${d.homeName}",${d.amount},${d.startDate},${d.nextDueDate || 'N/A'},${d.status || 'N/A'}\n`;
           });
@@ -277,7 +277,7 @@ const Reports = () => {
           break;
         }
         case 'workdone': {
-          csvContent = 'Type,Home,Date,Item,Donor,Amount/Value,Completion Notes\n';
+          csvContent = 'Type,Project,Date,Item,Donor,Amount/Value,Completion Notes\n';
           completedFoodSlots.forEach(slot => {
             csvContent += `"Food Slot","${slot.home_name}","${slot.date}","${slot.time_slot}","${slot.donor_name}","₹${slot.amount || 0}","${slot.completion_notes || ''}"\n`;
           });
@@ -361,10 +361,10 @@ const Reports = () => {
               </Select>
               <Select value={homeFilter} onValueChange={setHomeFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by Home" />
+                  <SelectValue placeholder="Filter by Project" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  <SelectItem value="all">All Homes</SelectItem>
+                  <SelectItem value="all">All Projects</SelectItem>
                   {homes.map(home => (
                     <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
                   ))}
@@ -602,7 +602,7 @@ const Reports = () => {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Needs by Home</CardTitle><CardDescription>Need distribution across homes</CardDescription></CardHeader>
+                <CardHeader><CardTitle>Needs by Project</CardTitle><CardDescription>Need distribution across projects</CardDescription></CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
                     {needsByHome.length > 0 ? (
@@ -836,7 +836,7 @@ const Reports = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Donor</TableHead>
-                        <TableHead>Home</TableHead>
+                        <TableHead>Project</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead>Start Date</TableHead>
                         <TableHead>Next Due</TableHead>
@@ -1070,7 +1070,7 @@ const Reports = () => {
             </div>
 
             <Card>
-              <CardHeader><CardTitle>Home-wise Work Done Summary</CardTitle><CardDescription>Completed work breakdown by home</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Project-wise Work Done Summary</CardTitle><CardDescription>Completed work breakdown by project</CardDescription></CardHeader>
               <CardContent>
                 {workDoneLoading ? (
                   <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -1078,7 +1078,7 @@ const Reports = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Home</TableHead>
+                        <TableHead>Project</TableHead>
                         <TableHead className="text-center">Food Slots</TableHead>
                         <TableHead className="text-center">Kind Items</TableHead>
                         <TableHead className="text-center">Needs</TableHead>
@@ -1210,7 +1210,7 @@ const Reports = () => {
 
             <div className="grid lg:grid-cols-3 gap-6">
               <Card>
-                <CardHeader><CardTitle className="text-base">Homes Performance</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Projects Performance</CardTitle></CardHeader>
                 <CardContent>
                   {homesPerformance.length > 0 ? (
                     <div className="space-y-3">

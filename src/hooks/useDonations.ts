@@ -297,6 +297,27 @@ export function useDonationPayments(donationId: string | null) {
   });
 }
 
+export function useDonorDonationPayments(donationIds: string[]) {
+  const sortedIds = [...donationIds].sort().join(',');
+
+  return useQuery({
+    queryKey: ['donor-donation-payments', sortedIds],
+    queryFn: async () => {
+      if (!donationIds.length) return [] as DonationPayment[];
+
+      const { data, error } = await supabase
+        .from('donation_payments')
+        .select('*')
+        .in('donation_id', donationIds)
+        .order('payment_date', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as DonationPayment[];
+    },
+    enabled: donationIds.length > 0,
+  });
+}
+
 export interface RecordPaymentParams {
   donation_id: string;
   amount: number;

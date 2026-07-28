@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
+import { getLoginPath } from "@/lib/portal";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -37,7 +38,7 @@ const ResetPassword = () => {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast.success("Password updated successfully!");
-      navigate("/login");
+      navigate(getLoginPath());
     } catch (error: any) {
       toast.error(error.message || "Failed to update password");
     } finally {

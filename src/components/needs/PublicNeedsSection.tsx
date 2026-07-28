@@ -84,7 +84,7 @@ const PublicNeedsSection = () => {
       <div className="container">
         <div className="text-center mb-8">
           <h2 className="font-display text-3xl md:text-4xl font-bold mb-2">Requirements Management</h2>
-          <p className="text-muted-foreground">Browse and sponsor requirements from our care homes</p>
+          <p className="text-muted-foreground">Browse and sponsor requirements from our projects</p>
         </div>
 
         {/* Stats Cards */}
@@ -171,10 +171,10 @@ const PublicNeedsSection = () => {
                   </div>
                   <Select value={homeFilter} onValueChange={setHomeFilter}>
                     <SelectTrigger className="w-full sm:w-48">
-                      <SelectValue placeholder="All Homes" />
+                      <SelectValue placeholder="All Projects" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Homes</SelectItem>
+                      <SelectItem value="all">All Projects</SelectItem>
                       {homes?.map(home => (
                         <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
                       ))}
@@ -276,7 +276,7 @@ const PublicNeedsSection = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Date</TableHead>
-                          <TableHead>Home</TableHead>
+                          <TableHead>Project</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead className="hidden md:table-cell">Description</TableHead>
                           <TableHead className="text-center">Qty</TableHead>

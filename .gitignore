@@ -12,6 +12,9 @@ dist
 .env
 .env.*
 !.env.example
+uploads
+server/node_modules
+server/dist
 dist-ssr
 *.local
 

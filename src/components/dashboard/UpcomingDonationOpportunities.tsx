@@ -84,7 +84,7 @@ const UpcomingDonationOpportunities = () => {
                         <TableHead>Donor</TableHead>
                         <TableHead className="hidden sm:table-cell">Phone</TableHead>
                         <TableHead>Occasion</TableHead>
-                        <TableHead className="hidden md:table-cell">Home</TableHead>
+                        <TableHead className="hidden md:table-cell">Project</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead>Anniversary</TableHead>
                         <TableHead className="text-right">Actions</TableHead>

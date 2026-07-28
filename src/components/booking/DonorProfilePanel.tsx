@@ -178,7 +178,7 @@ export const DonorProfilePanel = ({ donor, onProceed, onBack }: DonorProfilePane
                           </div>
                           <div>
                             <div className="font-medium">
-                              {donation.homes?.name || 'Unknown Home'}
+                              {donation.homes?.name || 'Unknown Project'}
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {format(new Date(donation.start_date), 'dd MMM yyyy')}
@@ -218,7 +218,7 @@ export const DonorProfilePanel = ({ donor, onProceed, onBack }: DonorProfilePane
                           </div>
                           <div>
                             <div className="font-medium">
-                              {slot.homes?.name || 'Unknown Home'}
+                              {slot.homes?.name || 'Unknown Project'}
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {format(new Date(slot.date), 'dd MMM yyyy')} • {timeSlotLabels[slot.time_slot] || slot.time_slot}
@@ -304,7 +304,7 @@ export const DonorProfilePanel = ({ donor, onProceed, onBack }: DonorProfilePane
                               {donation.item_type}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {donation.homes?.name || 'Unknown Home'} • {format(new Date(donation.received_date), 'dd MMM yyyy')}
+                              {donation.homes?.name || 'Unknown Project'} • {format(new Date(donation.received_date), 'dd MMM yyyy')}
                             </div>
                             {donation.item_description && (
                               <div className="text-xs text-muted-foreground truncate max-w-[200px]">

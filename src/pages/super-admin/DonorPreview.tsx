@@ -429,7 +429,7 @@ const DonorPreview = () => {
                                   className="flex items-center justify-between p-3 rounded-lg border-2 border-primary/20 bg-primary/5"
                                 >
                                   <div>
-                                    <p className="font-medium">{donation.homes?.name || 'Unknown Home'}</p>
+                                    <p className="font-medium">{donation.homes?.name || 'Unknown Project'}</p>
                                     <p className="text-sm text-muted-foreground">
                                       {donation.next_due_date 
                                         ? `Due: ${format(new Date(donation.next_due_date), 'dd MMM yyyy')}`
@@ -458,7 +458,7 @@ const DonorPreview = () => {
                               className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                             >
                               <div>
-                                <p className="font-medium">{donation.homes?.name || 'Unknown Home'}</p>
+                                <p className="font-medium">{donation.homes?.name || 'Unknown Project'}</p>
                                 <p className="text-sm text-muted-foreground">
                                   {format(new Date(donation.start_date), 'dd MMM yyyy')} • {donation.sponsorship_type}
                                 </p>
@@ -500,7 +500,7 @@ const DonorPreview = () => {
                           >
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <p className="font-medium">{slot.homes?.name || 'Unknown Home'}</p>
+                                <p className="font-medium">{slot.homes?.name || 'Unknown Project'}</p>
                                 <Badge variant="outline" className="text-xs">
                                   {timeSlotLabels[slot.time_slot] || slot.time_slot}
                                 </Badge>
@@ -596,7 +596,7 @@ const DonorPreview = () => {
                             <div>
                               <p className="font-medium">{donation.item_type}</p>
                               <p className="text-sm text-muted-foreground">
-                                {donation.homes?.name || 'Unknown Home'} • {format(new Date(donation.received_date), 'dd MMM yyyy')}
+                                {donation.homes?.name || 'Unknown Project'} • {format(new Date(donation.received_date), 'dd MMM yyyy')}
                               </p>
                               {donation.item_description && (
                                 <p className="text-xs text-muted-foreground truncate max-w-xs">

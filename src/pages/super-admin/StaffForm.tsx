@@ -14,11 +14,19 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, User, Save, Shield, Building2, Home, Key, RefreshCw, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useCreateUser, useTrusts, useUsers, useUpdateUser } from '@/hooks/useUsers';
 import { useHomes } from '@/hooks/useHomes';
+import { listUserProjectAssignments } from '@/lib/assignPrimarySocialWorker';
+import {
+  clearAllStaffProjectAssignments,
+  syncStaffProjectAssignments,
+} from '@/lib/syncStaffProjectAssignments';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CredentialsModal } from '@/components/users/CredentialsModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatUserRole } from '@/lib/roleLabels';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type StaffRole = 'super_admin' | 'admin' | 'employee' | 'warden' | 'finance';
@@ -31,7 +39,8 @@ const createStaffSchema = z.object({
   phone: z.string().min(10, 'Valid phone number is required').optional().or(z.literal('')),
   role: z.enum(['super_admin', 'admin', 'employee', 'warden', 'finance']),
   assigned_trust_id: z.string().optional(),
-  assigned_home_id: z.string().optional(),
+  assigned_home_ids: z.array(z.string()).optional(),
+  primary_home_id: z.string().optional(),
 });
 
 // Schema for editing user (password not required)
@@ -41,7 +50,8 @@ const editStaffSchema = z.object({
   phone: z.string().min(10, 'Valid phone number is required').optional().or(z.literal('')),
   role: z.enum(['super_admin', 'admin', 'employee', 'warden', 'finance']),
   assigned_trust_id: z.string().optional(),
-  assigned_home_id: z.string().optional(),
+  assigned_home_ids: z.array(z.string()).optional(),
+  primary_home_id: z.string().optional(),
 });
 
 type StaffFormData = {
@@ -51,7 +61,8 @@ type StaffFormData = {
   phone: string;
   role: StaffRole;
   assigned_trust_id: string;
-  assigned_home_id: string;
+  assigned_home_ids: string[];
+  primary_home_id: string;
 };
 
 // Generate a random password
@@ -66,6 +77,7 @@ const generatePassword = () => {
 
 const StaffForm = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { staffId } = useParams();
   const isEditing = Boolean(staffId);
   const { user, session } = useAuth();
@@ -77,7 +89,8 @@ const StaffForm = () => {
     phone: '',
     role: 'employee',
     assigned_trust_id: '',
-    assigned_home_id: '',
+    assigned_home_ids: [],
+    primary_home_id: '',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof StaffFormData, string>>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -105,31 +118,58 @@ const StaffForm = () => {
 
   // Populate form when editing
   useEffect(() => {
-    if (isEditing && existingStaff) {
+    if (!isEditing || !staffId || !existingStaff) return;
+
+    let cancelled = false;
+    (async () => {
+      let homeIds: string[] = existingStaff.home_id ? [existingStaff.home_id] : [];
+      let primaryId = existingStaff.home_id || '';
+
+      if (existingStaff.role === 'warden') {
+        try {
+          const assignments = await listUserProjectAssignments(staffId);
+          if (assignments.length > 0) {
+            homeIds = assignments.map((a: { home_id: string }) => a.home_id);
+            const primary = assignments.find((a: { is_primary: boolean }) => a.is_primary);
+            primaryId = primary?.home_id || homeIds[0] || '';
+          }
+        } catch {
+          // fall back to legacy home_id
+        }
+      }
+
+      if (cancelled) return;
       setFormData({
         name: existingStaff.name,
         email: existingStaff.email,
-        password: '', // Don't show password
+        password: '',
         phone: existingStaff.phone || '',
         role: existingStaff.role as StaffRole,
         assigned_trust_id: existingStaff.trust_id || '',
-        assigned_home_id: existingStaff.home_id || '',
+        assigned_home_ids: homeIds,
+        primary_home_id: primaryId,
       });
       setIsFormReady(true);
-    }
-  }, [isEditing, existingStaff]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, staffId, existingStaff]);
 
   const handleChange = (field: keyof StaffFormData, value: string) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       // Clear home selection if trust changes
       if (field === 'assigned_trust_id') {
-        updated.assigned_home_id = '';
+        updated.assigned_home_ids = [];
+        updated.primary_home_id = '';
       }
       // Clear assignments if role doesn't need them
       if (field === 'role' && !['admin', 'employee', 'warden'].includes(value)) {
         updated.assigned_trust_id = '';
-        updated.assigned_home_id = '';
+        updated.assigned_home_ids = [];
+        updated.primary_home_id = '';
       }
       return updated;
     });
@@ -158,41 +198,73 @@ const StaffForm = () => {
       // Validate assignments based on role
       if ((formData.role === 'admin' || formData.role === 'employee' || formData.role === 'finance') && !formData.assigned_trust_id) {
         setErrors({ assigned_trust_id: `${formData.role === 'admin' ? 'Admins' : 'Employees'} must be assigned to a trust` });
-        toast.error(`Please assign the ${formData.role} to a trust`);
+        toast.error(`Please assign the ${formatUserRole(formData.role)} to a trust`);
         return;
       }
-      if (formData.role === 'warden' && !formData.assigned_home_id) {
-        setErrors({ assigned_home_id: 'Social Workers must be assigned to a home' });
-        toast.error('Please assign the social worker to a home');
+      if (formData.role === 'warden' && !formData.assigned_trust_id) {
+        setErrors({ assigned_trust_id: 'Social Workers must be assigned to a trust' });
+        toast.error('Please assign the social worker to a trust');
         return;
       }
       
       if (isEditing && staffId) {
-        // Update existing staff
+        const primaryHomeId =
+          formData.primary_home_id && formData.assigned_home_ids.includes(formData.primary_home_id)
+            ? formData.primary_home_id
+            : formData.assigned_home_ids[0] || null;
+
         await updateUser.mutateAsync({
           userId: staffId,
           updates: {
             name: formData.name,
             phone: formData.phone || null,
             trust_id: formData.assigned_trust_id || null,
-            home_id: formData.assigned_home_id || null,
           },
         });
+
+        if (formData.role === 'warden' && formData.assigned_trust_id) {
+          await syncStaffProjectAssignments({
+            staffId,
+            trustId: formData.assigned_trust_id,
+            homeIds: formData.assigned_home_ids,
+            primaryHomeId,
+          });
+        } else if (existingStaff?.role === 'warden') {
+          await clearAllStaffProjectAssignments(staffId);
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ['project-assignments'] });
+        await queryClient.invalidateQueries({ queryKey: ['users'] });
+
         toast.success('Staff member updated successfully');
         navigate('/super-admin/staff');
       } else {
-        // Create new staff member
-        await createUser.mutateAsync({
+        const primaryHomeId =
+          formData.primary_home_id && formData.assigned_home_ids.includes(formData.primary_home_id)
+            ? formData.primary_home_id
+            : formData.assigned_home_ids[0] || null;
+
+        const result = await createUser.mutateAsync({
           name: formData.name,
           email: formData.email,
           password: formData.password,
           phone: formData.phone || undefined,
           role: formData.role,
           trust_id: formData.assigned_trust_id || undefined,
-          home_id: formData.assigned_home_id || undefined,
         });
 
-        // Show credentials modal
+        if (formData.role === 'warden' && formData.assigned_trust_id && formData.assigned_home_ids.length > 0) {
+          await syncStaffProjectAssignments({
+            staffId: result.user_id as string,
+            trustId: formData.assigned_trust_id,
+            homeIds: formData.assigned_home_ids,
+            primaryHomeId,
+          });
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ['project-assignments'] });
+        await queryClient.invalidateQueries({ queryKey: ['users'] });
+
         setCreatedCredentials({
           email: formData.email,
           password: formData.password,
@@ -223,10 +295,10 @@ const StaffForm = () => {
 
   const getRoleDescription = (role: StaffRole) => {
     const descriptions: Record<StaffRole, string> = {
-      super_admin: 'Full platform access. Can manage all trusts, homes, staff, and settings.',
-      admin: 'Trust-level access. Can manage homes, needs, and staff within assigned trust.',
+      super_admin: 'Full platform access. Can manage all trusts, projects, staff, and settings.',
+      admin: 'Trust-level access. Can manage projects, needs, and staff within assigned trust.',
       employee: 'Employee access. Can view and complete assigned tasks within their trust.',
-      warden: 'Home-level access. Can manage residents, needs, and tasks for assigned home.',
+      warden: 'Project-level access. Can manage residents, needs, and tasks for assigned project.',
       finance: 'Finance access. Can record bank transactions, upload statements, and reconcile payments within assigned trust.',
     };
     return descriptions[role];
@@ -476,13 +548,13 @@ const StaffForm = () => {
                 </div>
               )}
 
-              {/* Trust & Home Assignment for Social Worker */}
+              {/* Trust & Project Assignment for Social Worker */}
               {formData.role === 'warden' && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="trust" className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
-                      Select Trust
+                      Select Trust *
                     </Label>
                     <Select 
                       value={formData.assigned_trust_id || '__all__'} 
@@ -502,33 +574,67 @@ const StaffForm = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="home" className="flex items-center gap-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="flex items-center gap-2">
                       <Home className="h-4 w-4" />
-                      Assign to Home *
+                      Assign to Projects
                     </Label>
-                    <Select 
-                      value={formData.assigned_home_id} 
-                      onValueChange={(value) => handleChange('assigned_home_id', value)}
-                      disabled={homesLoading}
-                    >
-                      <SelectTrigger className={errors.assigned_home_id ? 'border-destructive' : ''}>
-                        <SelectValue placeholder={homesLoading ? 'Loading...' : 'Select a home'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredHomes.map(home => {
-                          const trust = trusts.find(t => t.id === home.trust_id);
+                    <p className="text-xs text-muted-foreground">
+                      Select one or more projects. Mark one as primary for public contact and default login context.
+                    </p>
+                    <div className="rounded-lg border p-3 max-h-56 overflow-y-auto space-y-2">
+                      {filteredHomes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No projects in this trust.</p>
+                      ) : (
+                        filteredHomes.map((home) => {
+                          const checked = formData.assigned_home_ids.includes(home.id);
                           return (
-                            <SelectItem key={home.id} value={home.id}>
-                              {home.name} ({home.city}){trust ? ` - ${trust.name}` : ''}
-                            </SelectItem>
+                            <div key={home.id} className="flex items-start gap-3 py-1">
+                              <Checkbox
+                                id={`project-${home.id}`}
+                                checked={checked}
+                                onCheckedChange={(value) => {
+                                  setFormData((prev) => {
+                                    const nextIds = value
+                                      ? [...prev.assigned_home_ids, home.id]
+                                      : prev.assigned_home_ids.filter((id) => id !== home.id);
+                                    let nextPrimary = prev.primary_home_id;
+                                    if (!value && prev.primary_home_id === home.id) {
+                                      nextPrimary = nextIds[0] || '';
+                                    }
+                                    if (value && nextIds.length === 1) {
+                                      nextPrimary = home.id;
+                                    }
+                                    return {
+                                      ...prev,
+                                      assigned_home_ids: nextIds,
+                                      primary_home_id: nextPrimary,
+                                    };
+                                  });
+                                }}
+                              />
+                              <label htmlFor={`project-${home.id}`} className="flex-1 text-sm cursor-pointer">
+                                <span className="font-medium">{home.name}</span>
+                                <span className="text-muted-foreground"> ({home.city})</span>
+                              </label>
+                              {checked && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={formData.primary_home_id === home.id ? 'default' : 'outline'}
+                                  className="h-7 text-xs shrink-0"
+                                  onClick={() =>
+                                    setFormData((prev) => ({ ...prev, primary_home_id: home.id }))
+                                  }
+                                >
+                                  {formData.primary_home_id === home.id ? 'Primary' : 'Set primary'}
+                                </Button>
+                              )}
+                            </div>
                           );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    {errors.assigned_home_id && (
-                      <p className="text-xs text-destructive">{errors.assigned_home_id}</p>
-                    )}
+                        })
+                      )}
+                    </div>
                   </div>
                 </>
               )}

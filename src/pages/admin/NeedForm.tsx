@@ -29,6 +29,7 @@ import { useHomes, useTrusts } from '@/hooks/useHomes';
 import { useCategories, useSubcategories, useSubSubcategories } from '@/hooks/useCategories';
 import { useNeed, useCreateNeed, useUpdateNeed } from '@/hooks/useNeeds';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActiveProject } from '@/hooks/useActiveProject';
 import { FoodDistributionTableView } from '@/components/food-calendar/FoodDistributionTableView';
 import { NeedAttachmentUpload } from '@/components/needs/NeedAttachmentUpload';
 import { CorpusFundForm } from '@/components/corpus-fund/CorpusFundForm';
@@ -41,7 +42,7 @@ type DonationMode = 'MONEY_ONLY' | 'PRODUCT_ONLY' | 'BOTH';
 
 // Validation schema
 const needSchema = z.object({
-  home_id: z.string().min(1, "Please select a home"),
+  home_id: z.string().min(1, "Please select a project"),
   category_id: z.string().min(1, "Please select a category"),
   subcategory_id: z.string().optional(),
   sub_subcategory_id: z.string().optional(),
@@ -82,8 +83,10 @@ const NeedForm = () => {
   const { needId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { homeId, assignedProjectIds } = useActiveProject();
   const isEditing = !!needId;
   const isWarden = user?.role === 'warden';
+  const needsListPath = isWarden ? '/warden/needs' : '/admin/needs';
   
   const [formData, setFormData] = useState<NeedFormData>({
     home_id: '',
@@ -133,12 +136,16 @@ const NeedForm = () => {
   const createNeed = useCreateNeed();
   const updateNeed = useUpdateNeed();
 
-  // Pre-populate home_id for wardens
+  const wardenHomes = isWarden
+    ? homes.filter((h) => assignedProjectIds.includes(h.id))
+    : homes;
+
+  // Pre-populate home_id for wardens (active project from switcher)
   useEffect(() => {
-    if (!isEditing && isWarden && user?.home_id) {
-      setFormData(prev => ({ ...prev, home_id: user.home_id }));
+    if (!isEditing && isWarden && homeId) {
+      setFormData(prev => ({ ...prev, home_id: homeId }));
     }
-  }, [isWarden, user?.home_id, isEditing]);
+  }, [isWarden, homeId, isEditing]);
 
   // Load existing need data if editing
   useEffect(() => {
@@ -237,12 +244,26 @@ const NeedForm = () => {
     // Get trust_id from selected home
     const selectedHome = homes.find(h => h.id === formData.home_id);
     if (!selectedHome) {
-      toast.error('Please select a valid home');
+      toast.error('Please select a valid project');
       return;
     }
 
     try {
       if (isEditing && needId) {
+        if (
+          (formData.donation_mode === 'PRODUCT_ONLY' || formData.donation_mode === 'BOTH') &&
+          !(formData.estimated_unit_price > 0)
+        ) {
+          toast.error('Product value (estimated unit price) is required');
+          return;
+        }
+        if (
+          (formData.donation_mode === 'MONEY_ONLY' || formData.donation_mode === 'BOTH') &&
+          !(formData.required_amount > 0)
+        ) {
+          toast.error('Required amount (₹) is required');
+          return;
+        }
         await updateNeed.mutateAsync({
           id: needId,
           quantity: formData.quantity,
@@ -252,9 +273,33 @@ const NeedForm = () => {
           fulfillment_details: formData.fulfillment_details || null,
           approval_status: formData.approval_status,
           approval_notes: formData.approval_notes || null,
+          donation_mode: formData.donation_mode as DonationMode,
+          required_amount: formData.donation_mode !== 'PRODUCT_ONLY' ? formData.required_amount : 0,
+          required_product_qty: formData.donation_mode !== 'MONEY_ONLY' ? formData.required_product_qty : 0,
+          product_name: formData.donation_mode !== 'MONEY_ONLY' ? formData.product_name : null,
+          product_unit: formData.donation_mode !== 'MONEY_ONLY' ? formData.product_unit : null,
+          product_specification: formData.donation_mode !== 'MONEY_ONLY' ? formData.product_specification : null,
+          product_link: formData.donation_mode !== 'MONEY_ONLY' && formData.product_link ? formData.product_link : null,
+          estimated_unit_price: formData.donation_mode !== 'MONEY_ONLY' ? formData.estimated_unit_price : null,
+          photo_urls: formData.photo_urls && formData.photo_urls.length > 0 ? formData.photo_urls : null,
+          quotation_urls: formData.quotation_urls && formData.quotation_urls.length > 0 ? formData.quotation_urls : null,
         });
         toast.success('Requirement updated successfully');
       } else {
+        if (
+          (formData.donation_mode === 'PRODUCT_ONLY' || formData.donation_mode === 'BOTH') &&
+          !(formData.estimated_unit_price > 0)
+        ) {
+          toast.error('Product value (estimated unit price) is required — uploading a quotation does not set the value');
+          return;
+        }
+        if (
+          (formData.donation_mode === 'MONEY_ONLY' || formData.donation_mode === 'BOTH') &&
+          !(formData.required_amount > 0)
+        ) {
+          toast.error('Required amount (₹) is required');
+          return;
+        }
         await createNeed.mutateAsync({
           home_id: formData.home_id,
           trust_id: selectedHome.trust_id,
@@ -288,7 +333,7 @@ const NeedForm = () => {
         });
         toast.success('Requirement created successfully');
       }
-      navigate('/admin/needs');
+      navigate(needsListPath);
     } catch (error) {
       console.error('Error saving need:', error);
       toast.error(isEditing ? 'Failed to update requirement' : 'Failed to create requirement');
@@ -376,36 +421,33 @@ const NeedForm = () => {
             </CardHeader>
             <CardContent>
               <CorpusFundForm 
-                onSuccess={() => navigate('/admin/needs')}
-                onCancel={() => navigate('/admin/needs')}
+                onSuccess={() => navigate(needsListPath)}
+                onCancel={() => navigate(needsListPath)}
               />
             </CardContent>
           </Card>
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="space-y-6">
-              {/* Home Selection */}
+              {/* Project Selection */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Home Selection</CardTitle>
-                  <CardDescription>Select the home this need is for</CardDescription>
+                  <CardTitle>Project Selection</CardTitle>
+                  <CardDescription>Select the project this need is for</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Label htmlFor="home">Home *</Label>
+                    <Label htmlFor="home">Project *</Label>
                     <Select 
                       value={formData.home_id} 
                       onValueChange={(value) => setFormData(prev => ({ ...prev, home_id: value }))}
                       disabled={isWarden}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a home" />
+                        <SelectValue placeholder="Select a project" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(isWarden && user?.home_id 
-                          ? homes.filter(h => h.id === user.home_id)
-                          : homes
-                        ).map(home => (
+                        {(isWarden ? wardenHomes : homes).map(home => (
                           <SelectItem key={home.id} value={home.id}>
                             {home.name} ({home.city})
                           </SelectItem>
@@ -417,7 +459,7 @@ const NeedForm = () => {
                     )}
                     {isWarden && (
                       <p className="text-sm text-muted-foreground">
-                        You can only create requirements for your assigned home
+                        Requirements are created for your active project. Switch projects from the header if needed.
                       </p>
                     )}
                   </div>
@@ -666,7 +708,7 @@ const NeedForm = () => {
                       <Label className="text-sm text-muted-foreground">Additional Product Details</Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label htmlFor="estimated_unit_price">Estimated Unit Price (₹)</Label>
+                          <Label htmlFor="estimated_unit_price">Estimated Unit Price (₹) *</Label>
                           <Input
                             id="estimated_unit_price"
                             type="number"
@@ -674,7 +716,11 @@ const NeedForm = () => {
                             value={formData.estimated_unit_price}
                             onChange={(e) => setFormData(prev => ({ ...prev, estimated_unit_price: parseFloat(e.target.value) || 0 }))}
                             placeholder="Price per unit"
+                            required
                           />
+                          <p className="text-xs text-muted-foreground">
+                            Required numeric value — uploading a quotation does not set this field.
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="product_link">Product Link (URL)</Label>
@@ -956,7 +1002,7 @@ const NeedForm = () => {
 
             {/* Actions */}
             <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate('/admin/needs')}>
+              <Button type="button" variant="outline" onClick={() => navigate(needsListPath)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>

@@ -122,7 +122,7 @@ export const BookingCalendarView = ({
                 donorName: donor.name,
                 donationId: insertedDonation.id,
                 amount: slotAmount,
-                homeName: 'Care Home',
+                homeName: 'Project',
                 eventDescription: `Food Sponsorship - ${selectedFoodSlot.time_slot}`,
                 date: format(new Date(selectedFoodSlot.date), 'dd MMM yyyy'),
               });
@@ -165,7 +165,7 @@ export const BookingCalendarView = ({
             donorName: donor.name,
             donationId: insertedDonation.id,
             amount: amt,
-            homeName: selectedNeed.homes?.name || 'Care Home',
+            homeName: selectedNeed.homes?.name || 'Project',
             eventDescription: selectedNeed.description || selectedNeed.categories?.label || undefined,
             date: format(selectedDate, 'dd MMM yyyy'),
           });

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, CreditCard, Calendar, Home, IndianRupee } from 'lucide-react';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { Loader2, Calendar, Home, IndianRupee } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { DonorManualPayment, DonorPaymentStatus } from '@/components/donor/DonorManualPayment';
+import { useManualDonationPayment } from '@/hooks/useManualPayment';
+import { isManualPaymentsEnabled } from '@/lib/manualPayments';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -29,8 +30,11 @@ const Pay = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentFailed, setPaymentFailed] = useState(false);
 
   const { initiatePayment, isProcessing } = useRazorpay();
+  const manualPayment = useManualDonationPayment();
+  const useManual = isManualPaymentsEnabled();
 
   useEffect(() => {
     if (!donationId) {
@@ -64,9 +68,9 @@ const Pay = () => {
           occasion_type: data.occasion_type,
           occasion_note: data.occasion_note,
           status: data.status,
-          donor: data.donor as any,
-          home: data.home as any,
-          need: data.need as any,
+          donor: data.donor as DonationDetails['donor'],
+          home: data.home as DonationDetails['home'],
+          need: data.need as DonationDetails['need'],
         });
       } catch {
         setError('Failed to load donation details.');
@@ -78,9 +82,8 @@ const Pay = () => {
     fetchDonation();
   }, [donationId]);
 
-  const handlePay = () => {
+  const handleRazorpayPay = () => {
     if (!donation) return;
-
     initiatePayment({
       amount: donation.amount_pledged,
       donationId: donation.id,
@@ -90,148 +93,161 @@ const Pay = () => {
       description: donation.need?.description || 'Donation Payment',
       onSuccess: () => {
         setPaymentSuccess(true);
-        setDonation(prev => prev ? { ...prev, status: 'ACTIVE' } : null);
+        setDonation((prev) => (prev ? { ...prev, status: 'ACTIVE' } : null));
       },
-      onFailure: (err) => {
-        setError(err);
-      },
+      onFailure: (err) => setError(err),
     });
+  };
+
+  const handleManualSuccess = async () => {
+    if (!donation) return;
+    try {
+      await manualPayment.mutateAsync(donation.id);
+      setPaymentSuccess(true);
+      setDonation((prev) => (prev ? { ...prev, status: 'ACTIVE' } : null));
+    } catch {
+      /* hook handles toast */
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <MainLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#ffca0f' }} />
+        </div>
+      </MainLayout>
     );
   }
 
   if (error && !donation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <XCircle className="h-12 w-12 text-destructive mx-auto" />
-            <p className="text-lg font-medium">{error}</p>
-            <p className="text-sm text-muted-foreground">Please check the link and try again.</p>
-          </CardContent>
-        </Card>
-      </div>
+      <MainLayout>
+        <div className="donor-container py-16">
+          <DonorPaymentStatus
+            status="failure"
+            title="Donation Not Found"
+            message={error}
+            primaryAction={{ label: 'Back to Home', href: '/' }}
+          />
+        </div>
+      </MainLayout>
     );
   }
 
   if (paymentSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-            <h2 className="text-2xl font-bold">Payment Successful!</h2>
-            <p className="text-muted-foreground">
-              Thank you, {donation?.donor.name}. Your payment of {formatCurrency(donation?.amount_pledged || 0)} has been received.
-            </p>
-            <p className="text-sm text-muted-foreground">You will receive a confirmation email shortly.</p>
-          </CardContent>
-        </Card>
-      </div>
+      <MainLayout>
+        <div className="donor-container py-12 md:py-16">
+          <DonorPaymentStatus
+            status="success"
+            title="Payment Successful!"
+            message={`Thank you, ${donation?.donor.name}. Your payment of ${formatCurrency(donation?.amount_pledged || 0)} has been received.`}
+            amount={donation?.amount_pledged}
+            primaryAction={{ label: 'Back to Home', href: '/' }}
+            secondaryAction={{ label: 'My Donations', href: '/?tab=donations' }}
+          />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (paymentFailed) {
+    return (
+      <MainLayout>
+        <div className="donor-container py-12 md:py-16">
+          <DonorPaymentStatus
+            status="failure"
+            title="Payment Not Completed"
+            message="Your sponsorship is saved. You can try paying again from My Donations."
+            amount={donation?.amount_pledged}
+            primaryAction={{ label: 'Back to Home', href: '/' }}
+            secondaryAction={{ label: 'My Donations', href: '/?tab=donations' }}
+          />
+        </div>
+      </MainLayout>
     );
   }
 
   if (donation?.status === 'COMPLETED' || donation?.status === 'ACTIVE') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-            <h2 className="text-xl font-bold">Payment Already Completed</h2>
-            <p className="text-muted-foreground">
-              This donation has already been paid. Thank you for your generosity!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <MainLayout>
+        <div className="donor-container py-12 md:py-16">
+          <DonorPaymentStatus
+            status="success"
+            title="Payment Already Completed"
+            message="This donation has already been paid. Thank you for your generosity!"
+            amount={donation.amount_pledged}
+            primaryAction={{ label: 'Back to Home', href: '/' }}
+          />
+        </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Complete Your Payment</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">MS Chellamuthu Trust</p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Booking Summary */}
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Home className="h-4 w-4" /> Home
-              </span>
-              <span className="font-medium">{donation?.home.name}</span>
-            </div>
-            {donation?.need?.description && (
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-sm text-muted-foreground shrink-0">Event</span>
-                <span className="text-sm text-right">{donation.need.description}</span>
-              </div>
-            )}
-            {donation?.need?.categories?.label && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Category</span>
-                <Badge variant="secondary">{donation.need.categories.label}</Badge>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Date
-              </span>
-              <span className="font-medium">{format(new Date(donation!.start_date), 'dd MMM yyyy')}</span>
-            </div>
-            {donation?.occasion_type && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Occasion</span>
-                <span className="capitalize">{donation.occasion_type.replace('_', ' ')}</span>
-              </div>
-            )}
-          </div>
+    <MainLayout>
+      <div className="donor-container py-12 md:py-16 max-w-lg mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="donor-section-title">Complete Your Payment</h1>
+          <p className="text-sm mt-1" style={{ color: '#666' }}>M.S. Chellamuthu Trust</p>
+        </div>
 
-          {/* Amount */}
-          <div className="text-center py-4 border rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Amount to Pay</p>
-            <p className="text-3xl font-bold flex items-center justify-center gap-1">
+        <div className="donor-card p-5 space-y-4 mb-6">
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2" style={{ color: '#666' }}>
+              <Home className="h-4 w-4" /> Project
+            </span>
+            <span className="font-medium" style={{ color: '#333' }}>{donation?.home.name}</span>
+          </div>
+          {donation?.need?.description && (
+            <div className="flex items-start justify-between gap-4 text-sm">
+              <span style={{ color: '#666' }}>Event</span>
+              <span className="text-right" style={{ color: '#333' }}>{donation.need.description}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2" style={{ color: '#666' }}>
+              <Calendar className="h-4 w-4" /> Date
+            </span>
+            <span className="font-medium" style={{ color: '#333' }}>
+              {donation && format(new Date(donation.start_date), 'dd MMM yyyy')}
+            </span>
+          </div>
+          <div className="text-center pt-4 border-t" style={{ borderColor: 'var(--msc-border)' }}>
+            <p className="text-sm mb-1" style={{ color: '#666' }}>Amount to Pay</p>
+            <p className="text-3xl font-semibold flex items-center justify-center gap-1" style={{ fontFamily: 'Rubik, sans-serif', color: '#333' }}>
               <IndianRupee className="h-6 w-6" />
               {donation?.amount_pledged.toLocaleString('en-IN')}
             </p>
           </div>
+        </div>
 
-          {/* Error display */}
-          {error && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg text-center">
-              {error}
-            </div>
-          )}
-
-          {/* Pay Button */}
-          <Button
-            onClick={handlePay}
+        {useManual ? (
+          <DonorManualPayment
+            amount={donation?.amount_pledged || 0}
+            summary={donation?.need?.categories?.label || 'Donation'}
+            isProcessing={manualPayment.isPending}
+            onSuccess={handleManualSuccess}
+            onFailure={() => setPaymentFailed(true)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleRazorpayPay}
             disabled={isProcessing}
-            className="w-full h-12 text-lg gap-2"
-            size="lg"
+            className="donor-btn donor-btn-primary w-full py-3.5 flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {isProcessing ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <CreditCard className="h-5 w-5" />
-            )}
-            {isProcessing ? 'Processing...' : 'Pay Now'}
-          </Button>
+            {isProcessing && <Loader2 className="h-5 w-5 animate-spin" />}
+            {isProcessing ? 'Processing…' : 'Pay Now'}
+          </button>
+        )}
 
-          <p className="text-xs text-muted-foreground text-center">
-            Secure payment powered by Razorpay
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        {error && (
+          <p className="text-sm text-destructive text-center mt-4">{error}</p>
+        )}
+      </div>
+    </MainLayout>
   );
 };
 

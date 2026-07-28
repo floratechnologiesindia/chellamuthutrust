@@ -46,7 +46,7 @@ const Settings = () => {
           <SettingsIcon className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Manage categories, home types, and subcategories</p>
+            <p className="text-muted-foreground">Manage categories, project types, and subcategories</p>
           </div>
         </div>
 
@@ -68,6 +68,7 @@ const TIME_SLOT_ICONS: Record<string, React.ReactNode> = {
   AFTERNOON: <Cloud className="h-5 w-5 text-orange-500" />,
   EVENING: <Moon className="h-5 w-5 text-indigo-500" />,
   REFRESHMENTS: <Cookie className="h-5 w-5 text-pink-500" />,
+  OUTSIDE_FOOD: <UtensilsCrossed className="h-5 w-5 text-teal-600" />,
 };
 
 // Food Distribution Pricing Section
@@ -236,7 +237,7 @@ const FoodDistributionPricingSection = () => {
   );
 };
 
-// Home Types Management Section
+// Project Types Management Section
 const HomeTypesSection = () => {
   const { data: homeTypes, isLoading } = useAllHomeTypes();
   const createHomeType = useCreateHomeType();
@@ -282,7 +283,7 @@ const HomeTypesSection = () => {
           description: formData.description || undefined,
           icon: formData.icon || undefined,
         });
-        toast.success('Home type updated successfully');
+        toast.success('Project type updated successfully');
       } else {
         await createHomeType.mutateAsync({
           key: formData.key,
@@ -290,11 +291,11 @@ const HomeTypesSection = () => {
           description: formData.description || undefined,
           icon: formData.icon || undefined,
         });
-        toast.success('Home type created successfully');
+        toast.success('Project type created successfully');
       }
       setIsDialogOpen(false);
     } catch (error) {
-      toast.error('Failed to save home type');
+      toast.error('Failed to save project type');
     }
   };
 
@@ -304,9 +305,9 @@ const HomeTypesSection = () => {
         id: homeType.id,
         is_active: !homeType.is_active,
       });
-      toast.success(`Home type ${homeType.is_active ? 'deactivated' : 'activated'}`);
+      toast.success(`Project type ${homeType.is_active ? 'deactivated' : 'activated'}`);
     } catch (error) {
-      toast.error('Failed to update home type');
+      toast.error('Failed to update project type');
     }
   };
 
@@ -315,9 +316,9 @@ const HomeTypesSection = () => {
 
     try {
       await deleteHomeType.mutateAsync(homeType.id);
-      toast.success('Home type deleted');
+      toast.success('Project type deleted');
     } catch (error) {
-      toast.error('Failed to delete home type');
+      toast.error('Failed to delete project type');
     }
   };
 
@@ -328,13 +329,13 @@ const HomeTypesSection = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Home className="h-5 w-5" />
-              Home Types
+              Project Types
             </CardTitle>
-            <CardDescription>Manage the types of homes available in the system</CardDescription>
+            <CardDescription>Manage the types of projects available in the system</CardDescription>
           </div>
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Home Type
+            Add Project Type
           </Button>
         </CardHeader>
         <CardContent>
@@ -384,7 +385,7 @@ const HomeTypesSection = () => {
               ))}
               {(!homeTypes || homeTypes.length === 0) && (
                 <p className="text-center py-8 text-muted-foreground">
-                  No home types found. Click "Add Home Type" to create one.
+                  No project types found. Click "Add Project Type" to create one.
                 </p>
               )}
             </div>
@@ -392,13 +393,13 @@ const HomeTypesSection = () => {
         </CardContent>
       </Card>
 
-      {/* Home Type Dialog */}
+      {/* Project Type Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingHomeType ? 'Edit Home Type' : 'Add Home Type'}</DialogTitle>
+            <DialogTitle>{editingHomeType ? 'Edit Project Type' : 'Add Project Type'}</DialogTitle>
             <DialogDescription>
-              {editingHomeType ? 'Update home type details' : 'Create a new home type'}
+              {editingHomeType ? 'Update project type details' : 'Create a new project type'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -435,7 +436,7 @@ const HomeTypesSection = () => {
                 id="ht-description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Brief description of the home type"
+                placeholder="Brief description of the project type"
                 rows={3}
               />
             </div>

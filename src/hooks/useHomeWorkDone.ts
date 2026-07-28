@@ -129,7 +129,7 @@ export function useHomeWorkDoneSummary(trustId?: string, homeId?: string, dateRa
       const { data: tasks, error: tasksError } = await tasksQuery;
       if (tasksError) throw tasksError;
 
-      // Aggregate by home
+      // Aggregate by project
       const homeIds = homes?.filter(h => 
         !trustId || trustId === 'all' || h.trust_id === trustId
       ).map(h => h.id) || [];

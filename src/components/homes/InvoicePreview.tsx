@@ -15,6 +15,9 @@ export interface InvoiceData {
   paymentMode?: string;
   referenceNumber?: string;
   paymentDate?: string;
+  panNumber?: string;
+  aadharNumber?: string;
+  requires80g?: boolean;
 }
 
 interface InvoicePreviewProps {
@@ -175,6 +178,21 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
         <p>Vide Order No. CIT(E)/MDS/80G/143/2023-24</p>
         <p>Date: 27.09.2023 &nbsp; Valid from: A.Y. 2024-25 onwards</p>
         <p>Unique Registration No: AAATM1310PF20214</p>
+        {data.requires80g && (data.panNumber || data.aadharNumber) && (
+          <p style={{ marginTop: '6px' }}>
+            {data.panNumber && (
+              <span>
+                Donor PAN: <span style={{ fontWeight: 'bold' }}>{data.panNumber}</span>
+              </span>
+            )}
+            {data.panNumber && data.aadharNumber && ' · '}
+            {data.aadharNumber && (
+              <span>
+                Aadhaar: <span style={{ fontWeight: 'bold' }}>{data.aadharNumber}</span>
+              </span>
+            )}
+          </p>
+        )}
         <p style={{ marginTop: '6px', fontStyle: 'italic', color: '#555' }}>
           * Donation in cash exceeding Rs.2000/- will not qualify for deduction u/s 80G of IT Act.
         </p>

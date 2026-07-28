@@ -220,7 +220,7 @@ export function SuperAdminAnalytics() {
         </Card>
       </div>
 
-      {/* Row 3: Employee Performance & Needs by Home */}
+      {/* Row 3: Employee Performance & Needs by Project */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Employee Task Ratio */}
         <Card>
@@ -252,10 +252,10 @@ export function SuperAdminAnalytics() {
           </CardContent>
         </Card>
 
-        {/* Needs by Home */}
+        {/* Needs by Project */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Needs Status by Home</CardTitle>
+            <CardTitle className="text-base">Needs Status by Project</CardTitle>
           </CardHeader>
           <CardContent>
             {loadingHomes ? (

@@ -86,7 +86,7 @@ export const HomeCard = ({ home }: HomeCardProps) => {
 
       <CardFooter className="gap-2 mt-auto">
         <Button asChild variant="outline" className="flex-1">
-          <Link to={`/homes/${home.id}`}>View Details</Link>
+          <Link to={`/projects/${home.id}`}>View Details</Link>
         </Button>
         <Button asChild className="flex-1">
           <Link to={`/sponsor?home=${home.id}`}>Sponsor</Link>

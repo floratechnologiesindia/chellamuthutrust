@@ -83,7 +83,7 @@ const Index = () => {
                 Creates a Ripple of Hope
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-xl">
-                Connect with children&apos;s homes and old age homes. Sponsor a meal,
+                Connect with projects across our network. Sponsor a meal,
                 support education, or contribute to their well-being on a date that matters to you.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -94,8 +94,8 @@ const Index = () => {
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <Link to="/homes">
-                    Explore Homes
+                  <Link to="/projects">
+                    Explore Projects
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
@@ -146,7 +146,7 @@ const Index = () => {
                       <div className="text-2xl font-display font-bold text-accent">
                         {totalHomes || 4}
                       </div>
-                      <div className="text-xs text-muted-foreground">Care Homes</div>
+                      <div className="text-xs text-muted-foreground">Projects</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -176,7 +176,7 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-4">
             {[
               { icon: Heart, label: 'Lives Touched', value: totalResidents || 500, suffix: '+', color: 'text-primary' },
-              { icon: Building, label: 'Care Homes', value: totalHomes || 4, suffix: '', color: 'text-accent' },
+              { icon: Building, label: 'Projects', value: totalHomes || 4, suffix: '', color: 'text-accent' },
               { icon: PiggyBank, label: 'Donated', value: 25, suffix: 'L+', color: 'text-success', prefix: '₹' },
               { icon: Users, label: 'Active Donors', value: 100, suffix: '+', color: 'text-primary' },
             ].map((stat, i) => (
@@ -286,9 +286,9 @@ const Index = () => {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
-              { icon: Search, step: '1', title: 'Choose a Need', desc: 'Browse open needs from verified care homes across categories.' },
+              { icon: Search, step: '1', title: 'Choose a Need', desc: 'Browse open needs from verified projects across categories.' },
               { icon: CalendarDays, step: '2', title: 'Pick Your Date', desc: 'Sponsor on your birthday, anniversary, or any meaningful date.' },
-              { icon: Star, step: '3', title: 'Make an Impact', desc: 'Your contribution directly reaches the home with full transparency.' },
+              { icon: Star, step: '3', title: 'Make an Impact', desc: 'Your contribution directly reaches the project with full transparency.' },
             ].map((item, i) => (
               <div key={i} className={`text-center animate-slide-up-${i + 1}`}>
                 <div className="relative mx-auto mb-5 w-20 h-20">
@@ -311,17 +311,17 @@ const Index = () => {
       {/* ─── Urgent Needs ─── */}
       <PublicNeedCards />
 
-      {/* ─── Featured Homes ─── */}
+      {/* ─── Featured Projects ─── */}
       <section className="py-16 lg:py-24">
         <div className="container">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
             <div>
-              <h2 className="font-display text-3xl md:text-4xl font-bold mb-2">Our Care Homes</h2>
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-2">Our Projects</h2>
               <p className="text-muted-foreground">Trusted institutions providing love and care</p>
             </div>
             <Button variant="outline" asChild>
-              <Link to="/homes">
-                View All Homes
+              <Link to="/projects">
+                View All Projects
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -334,7 +334,7 @@ const Index = () => {
           ) : featuredHomes.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No homes registered yet.</p>
+              <p>No projects registered yet.</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

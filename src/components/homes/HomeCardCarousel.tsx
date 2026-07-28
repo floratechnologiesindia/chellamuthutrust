@@ -18,23 +18,20 @@ export function HomeCardCarousel({ homeId, fallbackImage, className }: HomeCardC
   const { data: photos, isLoading } = useHomePhotos(homeId);
 
   if (isLoading) {
-    return <Skeleton className={cn('aspect-video w-full', className)} />;
+    return <Skeleton className={cn('home-image-frame w-full', className)} />;
   }
 
-  const images = photos && photos.length > 0 
-    ? photos.map(p => p.url) 
-    : fallbackImage 
-      ? [fallbackImage] 
-      : ['/placeholder.svg'];
+  const images =
+    photos && photos.length > 0
+      ? photos.map((p) => p.url)
+      : fallbackImage
+        ? [fallbackImage]
+        : ['/placeholder.svg'];
 
   if (images.length === 1) {
     return (
-      <div className={cn('relative aspect-video overflow-hidden bg-muted', className)}>
-        <img
-          src={images[0]}
-          alt="Home"
-          className="h-full w-full object-contain"
-        />
+      <div className={cn('home-image-frame', className)}>
+        <img src={images[0]} alt="Project" />
       </div>
     );
   }
@@ -48,12 +45,8 @@ export function HomeCardCarousel({ homeId, fallbackImage, className }: HomeCardC
       <CarouselContent>
         {images.map((url, index) => (
           <CarouselItem key={index}>
-            <div className="relative aspect-video overflow-hidden bg-muted">
-              <img
-                src={url}
-                alt={`Home photo ${index + 1}`}
-                className="h-full w-full object-contain"
-              />
+            <div className="home-image-frame rounded-none">
+              <img src={url} alt={`Project photo ${index + 1}`} />
             </div>
           </CarouselItem>
         ))}

@@ -28,6 +28,7 @@ import { CalendarIcon, Zap, Loader2 } from 'lucide-react';
 import { TaskPriority } from '@/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { formatUserRole } from '@/lib/roleLabels';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStaffUsers, useCreateTask } from '@/hooks/useTasks';
@@ -200,7 +201,7 @@ export function QuickTaskDialog({ open, onOpenChange, onTaskCreate }: QuickTaskD
               <SelectContent>
                 {(staffUsers || []).map(user => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.name} ({user.role})
+                    {user.name} ({formatUserRole(user.role)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -261,7 +262,7 @@ export function QuickTaskDialog({ open, onOpenChange, onTaskCreate }: QuickTaskD
             </Popover>
           </div>
 
-          {/* Trust & Home (Optional) */}
+          {/* Trust & Project (Optional) */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Trust</Label>
@@ -284,13 +285,13 @@ export function QuickTaskDialog({ open, onOpenChange, onTaskCreate }: QuickTaskD
             </div>
 
             <div className="space-y-2">
-              <Label>Home</Label>
+              <Label>Project</Label>
               <Select value={homeId} onValueChange={(value) => {
                 setHomeId(value);
                 setRelatedNeedId('');
               }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select home" />
+                  <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
                   {(homes || []).map(home => (

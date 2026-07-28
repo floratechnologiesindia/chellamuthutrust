@@ -1,300 +1,306 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PhotoGalleryCarousel } from '@/components/homes/PhotoGalleryCarousel';
-import { WardenHelpSection } from '@/components/homes/WardenHelpSection';
+import { ProjectSwitcher } from '@/components/warden/ProjectSwitcher';
+import { AssignedHomeStates } from '@/components/warden/AssignedHomeStates';
+import { useAssignedHome } from '@/hooks/useAssignedHome';
+import { useWardenDashboardStats, type PeriodPreset } from '@/hooks/useWardenOps';
 import { WalkinKindDonationDialog } from '@/components/homes/WalkinKindDonationDialog';
-import { 
-  Users, 
-  ListChecks, 
+import {
+  UtensilsCrossed,
+  ListChecks,
+  BookOpen,
+  CheckSquare,
+  Wallet,
   Plus,
-  AlertCircle,
-  Loader2,
-  MapPin,
-  Phone,
-  Mail,
-  Baby,
-  Heart,
   Gift,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useHome } from '@/hooks/useHomes';
-import { useNeeds } from '@/hooks/useNeeds';
-import { useHomePhotos } from '@/hooks/useHomePhotos';
-import { Link } from 'react-router-dom';
-import type { Database } from '@/integrations/supabase/types';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
+import { formatCurrency } from '@/lib/formatters';
 
-type HomeType = Database['public']['Enums']['home_type'];
+const MODULES = [
+  { to: '/warden/food', title: 'Food Sponsorships', description: 'Book meals for donors', icon: UtensilsCrossed },
+  { to: '/warden/needs', title: 'Project Requirements', description: 'Material and financial needs', icon: ListChecks },
+  { to: '/warden/updates', title: 'Project Updates', description: 'Profile, residents, events', icon: BookOpen },
+  { to: '/warden/tasks', title: 'Task Bar', description: 'Checklist & assigned work', icon: CheckSquare },
+  { to: '/warden/donations', title: 'Active Donations', description: 'Ongoing sponsorships', icon: Wallet },
+] as const;
 
-const homeTypeLabels: Record<HomeType, string> = {
-  'children_home': 'Children Home',
-  'old_age_home': 'Old Age Home',
-  'mixed': 'Mixed Care',
-  'others': 'Other',
-  'special_children': 'Special Children Home',
-};
+const PIE_COLORS = ['#0d9488', '#f59e0b', '#ef4444', '#7ebec5', '#ff6633'];
 
 const WardenDashboard = () => {
-  const { user } = useAuth();
-  const homeId = user?.home_id || null;
+  const { homeId, home, isLoading } = useAssignedHome();
+  const [period, setPeriod] = useState<PeriodPreset>('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [showKindDonationDialog, setShowKindDonationDialog] = useState(false);
-  
-  const { data: home, isLoading: homeLoading } = useHome(homeId);
-  const { data: allNeeds, isLoading: needsLoading } = useNeeds({ homeId: homeId || undefined });
-  const { data: photos = [] } = useHomePhotos(homeId);
 
-  const trust = (home as any)?.trusts;
+  const { data: stats, isLoading: statsLoading } = useWardenDashboardStats(
+    homeId,
+    period,
+    period === 'custom' ? customStart : undefined,
+    period === 'custom' ? customEnd : undefined,
+  );
 
-  // Not assigned state
-  if (!homeId) {
-    return (
-      <MainLayout>
-        <div className="container py-8">
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <div className="h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
-              <AlertCircle className="h-8 w-8 text-warning" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">Not Assigned to Any Home</h1>
-            <p className="text-muted-foreground max-w-md">
-              You have not been assigned to a home yet. Please contact an administrator.
-            </p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
+  const mealPie = useMemo(() => {
+    if (!stats) return [];
+    return [
+      { name: 'Breakfast', value: stats.food.breakfast },
+      { name: 'Lunch', value: stats.food.lunch },
+      { name: 'Dinner', value: stats.food.dinner },
+      { name: 'Refreshments', value: stats.food.refreshments },
+      { name: 'Outside Food', value: stats.food.outside_food },
+    ].filter((d) => d.value > 0);
+  }, [stats]);
 
-  // Loading state
-  if (homeLoading || needsLoading) {
-    return (
-      <MainLayout>
-        <div className="container py-8">
-          <Skeleton className="h-10 w-64 mb-6" />
-          <Skeleton className="h-64 md:h-96 mb-8" />
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-32" />
-            </div>
-            <Skeleton className="h-48" />
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  if (!home) {
-    return (
-      <MainLayout>
-        <div className="container py-8">
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">Home Not Found</h1>
-            <p className="text-muted-foreground max-w-md">
-              The assigned home could not be found. Please contact an administrator.
-            </p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  const childrenTotal = (home.capacity_children_male || 0) + (home.capacity_children_female || 0);
-  const elderlyTotal = (home.capacity_elderly_male || 0) + (home.capacity_elderly_female || 0);
-  const totalCapacity = childrenTotal + elderlyTotal;
+  const payPie = useMemo(() => {
+    if (!stats) return [];
+    return [
+      { name: 'Paid', value: stats.payment.paid, color: '#0d9488' },
+      { name: 'Partial', value: stats.payment.partial, color: '#f59e0b' },
+      { name: 'Pending', value: stats.payment.pending, color: '#ef4444' },
+    ].filter((d) => d.value > 0);
+  }, [stats]);
 
   return (
-    <MainLayout>
-      <div className="container py-8">
-        {/* Social Worker Header with Quick Actions */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-display font-bold">{home.name}</h1>
-            <p className="text-muted-foreground mt-1">Social Worker Dashboard</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" asChild>
-              <Link to="/warden/residents">
-                <Users className="h-4 w-4 mr-2" />
-                Manage Residents
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/admin/needs">
-                <ListChecks className="h-4 w-4 mr-2" />
-                View Requirements
-              </Link>
-            </Button>
-            <Button variant="outline" onClick={() => setShowKindDonationDialog(true)}>
-              <Gift className="h-4 w-4 mr-2" />
-              Accept Kind Donation
-            </Button>
-            <Button asChild>
-              <Link to="/admin/needs/new">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Requirement
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Photo Gallery */}
-            <PhotoGalleryCarousel 
-              photos={photos} 
-              fallbackImage={home.image_url}
-            />
-
-            {/* Home Info */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Badge variant="secondary">{homeTypeLabels[home.type as HomeType]}</Badge>
-                {trust && <span className="text-sm text-primary">{trust.name}</span>}
-              </div>
-              <p className="text-lg text-muted-foreground">{home.description}</p>
-            </div>
-
-            {/* Capacity Stats */}
-            <div className="grid sm:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Users className="h-8 w-8 text-primary mx-auto mb-2" />
-                  <p className="text-2xl font-bold">{totalCapacity}</p>
-                  <p className="text-sm text-muted-foreground">Total Capacity</p>
-                </CardContent>
-              </Card>
-              {childrenTotal > 0 && (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Baby className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{childrenTotal}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Children ({home.capacity_children_male || 0}M / {home.capacity_children_female || 0}F)
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-              {elderlyTotal > 0 && (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Heart className="h-8 w-8 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{elderlyTotal}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Elderly ({home.capacity_elderly_male || 0}M / {home.capacity_elderly_female || 0}F)
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Social Worker Help Management Section */}
-            <WardenHelpSection homeId={homeId} trustId={home.trust_id} />
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Contact Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="font-medium">Address</p>
-                    <p className="text-sm text-muted-foreground">
-                      {home.address}<br />
-                      {home.city}, {home.state}<br />
-                      {home.country} - {home.pincode}
-                    </p>
-                  </div>
+    <AssignedHomeStates homeId={homeId} home={home} isLoading={isLoading}>
+      {home && homeId && (
+        <MainLayout>
+          <div className="container py-8 space-y-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div className="flex flex-col gap-2 min-w-0">
+                <div className="md:hidden">
+                  <ProjectSwitcher className="w-full max-w-xs" />
                 </div>
-                {trust && (
+                <p className="text-sm text-muted-foreground">{home.name}</p>
+                <h1 className="text-3xl font-display font-bold">Dashboard</h1>
+                <p className="text-muted-foreground">
+                  Donation activity overview for this project
+                  {stats?.period ? ` · ${stats.period.start} to ${stats.period.end}` : ''}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">Period</Label>
+                  <Select value={period} onValueChange={(v) => setPeriod(v as PeriodPreset)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="month">Monthly</SelectItem>
+                      <SelectItem value="quarter">Quarterly</SelectItem>
+                      <SelectItem value="year">Yearly</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {period === 'custom' && (
                   <>
-                    {trust.contact_phone && (
-                      <div className="flex items-center gap-3">
-                        <Phone className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">Phone</p>
-                          <a href={`tel:${trust.contact_phone}`} className="text-sm text-primary hover:underline">
-                            {trust.contact_phone}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {trust.contact_email && (
-                      <div className="flex items-center gap-3">
-                        <Mail className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">Email</p>
-                          <a href={`mailto:${trust.contact_email}`} className="text-sm text-primary hover:underline">
-                            {trust.contact_email}
-                          </a>
-                        </div>
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <Label className="text-xs">From</Label>
+                      <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">To</Label>
+                      <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+                    </div>
                   </>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Support CTA */}
-            <Card className="bg-primary text-primary-foreground">
-              <CardContent className="pt-6">
-                <Heart className="h-8 w-8 mb-4 opacity-80" />
-                <h3 className="font-display text-xl font-semibold mb-2">Support This Home</h3>
-                <p className="text-sm opacity-90 mb-4">
-                  Browse available requirements and make a difference in the lives of residents.
-                </p>
-                <Button variant="secondary" className="w-full" asChild>
-                  <Link to={`/sponsor?home=${home.id}`}>
-                    View All Requirements
+                <Button variant="outline" onClick={() => setShowKindDonationDialog(true)}>
+                  <Gift className="h-4 w-4 mr-2" /> Kind Donation
+                </Button>
+                <Button asChild>
+                  <Link to="/warden/needs/new">
+                    <Plus className="h-4 w-4 mr-2" /> Requirement
                   </Link>
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Trust Info */}
-            {trust && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>About the Trust</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <h4 className="font-semibold mb-2">{trust.name}</h4>
-                  {trust.description && (
-                    <p className="text-sm text-muted-foreground mb-3">{trust.description}</p>
-                  )}
-                  {trust.registration_number && (
-                    <p className="text-xs text-muted-foreground">
-                      Registration: {trust.registration_number}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+            {statsLoading || !stats ? (
+              <div className="grid md:grid-cols-4 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardDescription>Food sponsorships</CardDescription>
+                      <CardTitle className="text-2xl">{stats.food.total_sponsorships}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{formatCurrency(stats.food.total_value)}</p>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardDescription>Pending payments</CardDescription>
+                      <CardTitle className="text-2xl">{stats.payment.pending + stats.payment.partial}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{stats.payment.paid} paid</p>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardDescription>In-kind donations</CardDescription>
+                      <CardTitle className="text-2xl">{stats.kind.total_count}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{formatCurrency(stats.kind.estimated_value)}</p>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2 pt-4 px-4">
+                      <CardDescription>Requirements</CardDescription>
+                      <CardTitle className="text-2xl">{stats.requirements.listed}</CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {stats.requirements.fully_sponsored} full · {stats.requirements.partially_sponsored} partial ·{' '}
+                        {stats.requirements.pending} open
+                      </p>
+                    </CardHeader>
+                  </Card>
+                </div>
+
+                <div className="grid lg:grid-cols-3 gap-4">
+                  <Card className="lg:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-base">Food sponsorship value</CardTitle>
+                      <CardDescription>By date in selected period</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[240px]">
+                      {stats.chart.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-16">No food sponsorships in this period</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={stats.chart}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                            <YAxis tickFormatter={(v) => `₹${v >= 1000 ? `${Math.round(v / 1000)}K` : v}`} tick={{ fontSize: 11 }} />
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                            <Area type="monotone" dataKey="amount" stroke="#ff6633" fill="#ffca0f" fillOpacity={0.45} name="Amount" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Meal mix</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[240px]">
+                      {mealPie.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-16">No data</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={mealPie} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                              {mealPie.map((_, i) => (
+                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Food sponsorship summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-3 text-sm">
+                      <div>Breakfast: <strong>{stats.food.breakfast}</strong></div>
+                      <div>Lunch: <strong>{stats.food.lunch}</strong></div>
+                      <div>Dinner: <strong>{stats.food.dinner}</strong></div>
+                      <div>Refreshments: <strong>{stats.food.refreshments}</strong></div>
+                      <div>Outside food: <strong>{stats.food.outside_food}</strong></div>
+                      <div>Total value: <strong>{formatCurrency(stats.food.total_value)}</strong></div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Payment status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex gap-4 items-center">
+                      <div className="h-[140px] w-[140px]">
+                        {payPie.length > 0 && (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={payPie} dataKey="value" innerRadius={35} outerRadius={55}>
+                                {payPie.map((e, i) => (
+                                  <Cell key={i} fill={e.color} />
+                                ))}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <div>Paid: <strong>{stats.payment.paid}</strong></div>
+                        <div>Partial: <strong>{stats.payment.partial}</strong></div>
+                        <div>Pending: <strong>{stats.payment.pending}</strong></div>
+                        <div>Upcoming: <strong>{stats.payment.upcoming}</strong></div>
+                        <div>Completed: <strong>{stats.payment.completed}</strong></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
             )}
-          </div>
-        </div>
-      </div>
 
-      {homeId && home && (
-        <WalkinKindDonationDialog
-          open={showKindDonationDialog}
-          onOpenChange={setShowKindDonationDialog}
-          homeId={homeId}
-          trustId={home.trust_id}
-          homeName={home.name}
-        />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {MODULES.map((mod) => {
+                const Icon = mod.icon;
+                return (
+                  <Link key={mod.to} to={mod.to} className="block group">
+                    <Card className="h-full transition-colors group-hover:border-primary/50 group-hover:bg-accent/30">
+                      <CardHeader>
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-full bg-primary/10 p-2 text-primary">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{mod.title}</CardTitle>
+                            <CardDescription className="mt-1">{mod.description}</CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <WalkinKindDonationDialog
+            open={showKindDonationDialog}
+            onOpenChange={setShowKindDonationDialog}
+            homeId={homeId}
+            trustId={home.trust_id}
+            homeName={home.name}
+          />
+        </MainLayout>
       )}
-    </MainLayout>
+    </AssignedHomeStates>
   );
 };
 

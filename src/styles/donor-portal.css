@@ -1,0 +1,946 @@
+/* MSC brand tokens — donor portal + staff CRM (msctrust.org / Divi theme) */
+
+.portal-donor,
+body.portal-app,
+.portal-app {
+  --msc-yellow: #ffca0f;
+  --msc-yellow-hover: #ffcc10;
+  --msc-orange: #ff6633;
+  --msc-button-text: #3c3b3b;
+  --msc-nav-text: #000000;
+  --msc-teal: #7ebec5;
+  --msc-heading: #333333;
+  --msc-body: #666666;
+  --msc-border: #e6e6e6;
+  --msc-surface-alt: #f9f9f9;
+  --msc-header-max: 1366px;
+  --msc-row-px: 50px;
+
+  --background: 0 0% 100%;
+  --foreground: 0 0% 20%;
+  --primary: 45 100% 53%;
+  --primary-foreground: 0 1% 23%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 20%;
+  --muted: 0 0% 98%;
+  --muted-foreground: 0 0% 40%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 45 100% 53%;
+  --radius: 0.25rem;
+
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--msc-body);
+  background-color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+.portal-donor h1,
+.portal-donor h2,
+.portal-donor h3,
+.portal-donor h4,
+.portal-donor h5,
+.portal-donor h6,
+body.portal-app h1,
+body.portal-app h2,
+body.portal-app h3,
+body.portal-app h4,
+body.portal-app h5,
+body.portal-app h6,
+.portal-app h1,
+.portal-app h2,
+.portal-app h3,
+.portal-app h4,
+.portal-app h5,
+.portal-app h6 {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  color: var(--msc-heading);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ─── Website header (matches msctrust.org sticky nav) ─── */
+
+.msc-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+}
+
+.msc-header-main {
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.msc-header-row {
+  max-width: var(--msc-header-max);
+  margin: 0 auto;
+  padding: 6px var(--msc-row-px);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 88px;
+}
+
+.msc-header-logo {
+  flex: 0 0 20%;
+  max-width: 202px;
+  min-width: 113px;
+}
+
+.msc-header-logo a {
+  display: block;
+  line-height: 0;
+}
+
+.msc-header-logo img {
+  display: block;
+  width: 202px;
+  height: auto;
+  max-width: 100%;
+}
+
+/* Nav column — et_pb_column_3_5 centered menu */
+.msc-header-nav-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  align-self: stretch;
+}
+
+.msc-header-nav {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.msc-header-nav-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 24px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.msc-header-nav-list li {
+  margin: 0;
+}
+
+.msc-header-nav-list a {
+  font-family: 'Rubik', Helvetica, Arial, Lucida, sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  color: #000000 !important;
+  text-decoration: none;
+  padding: 4px 2px;
+  line-height: 1.4;
+  white-space: nowrap;
+  letter-spacing: 0;
+  transition: color 0.4s ease-in-out, opacity 0.4s ease-in-out;
+  display: block;
+}
+
+.msc-header-nav-list a:hover {
+  opacity: 0.7;
+  color: #ffca0f !important;
+}
+
+.msc-header-account {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.msc-header-account-btn {
+  color: #7ebec5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.msc-header-account-btn:hover {
+  opacity: 0.8;
+}
+
+.msc-header-profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 2px solid var(--msc-teal);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  line-height: 0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.msc-header-profile-btn:hover {
+  border-color: var(--msc-orange);
+  box-shadow: 0 0 0 2px rgba(255, 102, 51, 0.15);
+}
+
+.msc-header-profile-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--msc-teal);
+  color: #fff;
+  font-family: 'Rubik', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.msc-header-profile-fallback {
+  background-color: var(--msc-teal);
+  color: #fff;
+  font-family: 'Rubik', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.msc-donate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Rubik', Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 3.2px;
+  text-transform: uppercase;
+  color: var(--msc-button-text) !important;
+  background-color: var(--msc-yellow);
+  border: 0;
+  border-radius: 30px;
+  padding: 8px 20px;
+  text-decoration: none;
+  transition: all 300ms ease;
+  white-space: nowrap;
+}
+
+.msc-donate-btn:hover {
+  background-color: var(--msc-yellow-hover);
+  color: var(--msc-button-text) !important;
+}
+
+.msc-account-btn {
+  color: var(--msc-teal);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+/* Mobile header — mirrors et_pb_section_5_tb_header */
+.msc-header-mobile-bar {
+  display: none;
+  max-width: var(--msc-header-max);
+  margin: 0 auto;
+  padding: 0.42rem var(--msc-row-px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 66px;
+}
+
+.msc-header-mobile-bar img,
+.msc-header-mobile-logo {
+  height: auto;
+  max-width: min(202px, 55vw);
+  width: auto;
+}
+
+.msc-mobile-logout {
+  display: block;
+  width: 100%;
+  font-family: 'Rubik', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  padding: 10px 5%;
+  border: none;
+  background: none;
+  color: #000;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  text-align: left;
+  cursor: pointer;
+}
+
+.msc-mobile-menu-btn {
+  color: var(--msc-teal);
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.msc-mobile-drawer {
+  display: none;
+  border-top: 3px solid var(--msc-yellow);
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.msc-mobile-drawer.is-open {
+  display: block;
+}
+
+.msc-mobile-drawer nav {
+  max-width: var(--msc-header-max);
+  margin: 0 auto;
+  padding: 1rem var(--msc-row-px) 1.5rem;
+}
+
+.msc-mobile-drawer a {
+  display: block;
+  font-family: 'Rubik', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--msc-nav-text);
+  text-decoration: none;
+  padding: 10px 5%;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.msc-mobile-drawer a:hover {
+  background-color: var(--msc-yellow-hover);
+  color: #fff;
+}
+
+@media (max-width: 980px) {
+  .msc-header-row {
+    display: none;
+  }
+
+  .msc-header-mobile-bar {
+    display: flex;
+  }
+}
+
+@media (max-width: 767px) {
+  .msc-header-row,
+  .msc-header-mobile-bar,
+  .msc-mobile-drawer nav {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* ─── Shared donor UI ─── */
+
+.portal-donor .donor-container,
+.portal-app .donor-container,
+.portal-app .app-container {
+  width: 100%;
+  max-width: var(--msc-header-max);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--msc-row-px);
+  padding-right: var(--msc-row-px);
+}
+
+.portal-donor .donor-btn,
+.portal-app .donor-btn {
+  font-family: 'Rubik', Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 3.2px;
+  text-transform: uppercase;
+  border-radius: 30px;
+  transition: all 300ms ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-donor .donor-btn-primary,
+.portal-app .donor-btn-primary {
+  background-color: var(--msc-yellow);
+  color: var(--msc-button-text);
+  border: 0;
+  padding: 8px 30px;
+}
+
+.portal-donor .donor-btn-primary:hover,
+.portal-app .donor-btn-primary:hover {
+  background-color: var(--msc-yellow-hover);
+  color: var(--msc-button-text);
+}
+
+.portal-donor .donor-btn-outline,
+.portal-app .donor-btn-outline {
+  background-color: #fff;
+  color: var(--msc-button-text);
+  border: 1px solid var(--msc-border);
+  padding: 8px 25px;
+}
+
+.portal-donor .donor-btn-outline:hover,
+.portal-app .donor-btn-outline:hover {
+  border-color: var(--msc-yellow);
+}
+
+.portal-donor .donor-input,
+.portal-app .donor-input {
+  background-color: var(--msc-surface-alt);
+  border: 1px solid var(--msc-border);
+  border-radius: 0.25rem;
+  color: var(--msc-heading);
+}
+
+.portal-donor .donor-input:focus,
+.portal-app .donor-input:focus {
+  border-color: var(--msc-yellow);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 202, 15, 0.2);
+}
+
+.portal-donor .donor-card,
+.portal-app .donor-card {
+  background: #fff;
+  border: 1px solid var(--msc-border);
+  border-radius: 0.25rem;
+}
+
+.portal-donor .donor-hero-accent {
+  color: var(--msc-orange);
+}
+
+.portal-donor .donor-section-title,
+.portal-app .donor-section-title,
+.portal-app .app-page-title {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--msc-heading);
+  line-height: 1.3;
+}
+
+.portal-donor .donor-portal-tabs .donor-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.portal-donor .donor-portal-tabs .donor-btn-primary.donor-portal-tab-active {
+  border: 2px solid #ff6633;
+  padding-top: calc(0.75rem - 1px);
+  padding-bottom: calc(0.75rem - 1px);
+}
+
+@media (min-width: 640px) {
+  .portal-donor .donor-portal-tabs .donor-btn-primary.donor-portal-tab-active {
+    padding-top: calc(0.875rem - 1px);
+    padding-bottom: calc(0.875rem - 1px);
+  }
+}
+
+.portal-donor .donor-portal-tabs {
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.portal-donor .donor-hero {
+  border-bottom: 1px solid var(--msc-border);
+}
+
+.portal-donor .donor-tab-content {
+  scroll-margin-top: 5rem;
+  transition: box-shadow 0.35s ease, background-color 0.35s ease;
+}
+
+.portal-donor .donor-tab-content-highlight {
+  animation: donor-tab-content-pulse 1.2s ease;
+}
+
+@keyframes donor-tab-content-pulse {
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(255, 102, 51, 0);
+    background-color: transparent;
+  }
+  25% {
+    box-shadow: inset 0 4px 0 0 rgba(255, 102, 51, 0.85);
+    background-color: rgba(255, 202, 15, 0.08);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(255, 102, 51, 0);
+    background-color: transparent;
+  }
+}
+
+.portal-donor .donor-hero-compact {
+  background: linear-gradient(180deg, rgba(255, 202, 15, 0.06) 0%, #fff 100%);
+}
+
+.portal-donor .donor-hero-compact .donor-portal-tabs {
+  margin-top: 0;
+}
+
+.portal-donor .donor-otp-slot {
+  border-color: var(--msc-border);
+  font-family: 'Rubik', sans-serif;
+}
+
+.portal-donor .donor-otp-slot[data-active='true'] {
+  border-color: var(--msc-yellow);
+  box-shadow: 0 0 0 2px rgba(255, 202, 15, 0.25);
+}
+
+.portal-donor .donor-stat {
+  border-left: 3px solid var(--msc-orange);
+  padding-left: 1rem;
+}
+
+@media (max-width: 767px) {
+  .portal-donor .donor-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+/* ─── Donor food slot modal (portaled outside .portal-donor layout) ─── */
+
+.portal-donor.donor-food-slot-dialog {
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--msc-body);
+  background: #fff;
+  border: 1px solid var(--msc-border) !important;
+  border-radius: 0.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.portal-donor.donor-food-slot-dialog h2 {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  color: var(--msc-heading);
+}
+
+.portal-donor.donor-food-slot-dialog [data-radix-dialog-close] {
+  color: #666;
+  opacity: 0.8;
+}
+
+.portal-donor.donor-food-slot-dialog [data-radix-dialog-close]:hover {
+  opacity: 1;
+  color: #333;
+}
+
+/* ─── Donor edit profile modal (portaled outside .portal-donor layout) ─── */
+
+.portal-donor.donor-profile-dialog {
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--msc-body);
+  background: #fff;
+  border: 1px solid var(--msc-border) !important;
+  border-radius: 0.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.portal-donor.donor-profile-dialog [data-radix-dialog-close] {
+  color: #666;
+  opacity: 0.8;
+}
+
+.portal-donor.donor-profile-dialog [data-radix-dialog-close]:hover {
+  opacity: 1;
+  color: #333;
+}
+
+.portal-donor.donor-profile-dialog .donor-profile-dialog-title {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 500;
+  color: var(--msc-heading);
+  line-height: 1.3;
+}
+
+.portal-donor.donor-profile-dialog .donor-profile-dialog-section {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ff6633;
+  margin: 0;
+}
+
+.portal-donor.donor-profile-dialog label {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--msc-heading);
+}
+
+.portal-donor.donor-profile-dialog .donor-profile-dialog-hint {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.8125rem;
+  color: #888;
+  font-weight: 300;
+}
+
+.portal-donor.donor-profile-dialog .donor-profile-80g-box {
+  background: var(--msc-surface-alt);
+  border: 1px solid var(--msc-border);
+  border-radius: 0.25rem;
+}
+
+.portal-donor.donor-profile-dialog .donor-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.donor-select-menu.portal-donor {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  background: #fff;
+  border: 1px solid var(--msc-border) !important;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.donor-select-menu.portal-donor [role='option'] {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+}
+
+.donor-select-menu.portal-donor [role='option'][data-highlighted] {
+  background: rgba(255, 202, 15, 0.15);
+  color: var(--msc-heading);
+}
+
+.donor-slot-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.85rem;
+  border-radius: 30px;
+  font-family: 'Rubik', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.donor-slot-status-need {
+  background: rgba(126, 190, 197, 0.2);
+  color: #3d6b72;
+}
+
+.donor-slot-status-booked {
+  background: rgba(255, 202, 15, 0.25);
+  color: #6b5a00;
+}
+
+.donor-slot-status-paid {
+  background: rgba(255, 102, 51, 0.12);
+  color: #c44a22;
+}
+
+/* ─── Donor food calendar slot badges ─── */
+
+.portal-donor .donor-food-slot-badge,
+.portal-app .donor-food-slot-badge {
+  border: none;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 600;
+}
+
+.portal-donor .donor-food-slot-badge-need,
+.portal-app .donor-food-slot-badge-need {
+  background: rgba(126, 190, 197, 0.25);
+  color: #3d6b72;
+  border: 1px dashed rgba(126, 190, 197, 0.65) !important;
+}
+
+.portal-donor .donor-food-slot-badge-booked,
+.portal-app .donor-food-slot-badge-booked {
+  background: var(--msc-yellow);
+  color: var(--msc-button-text);
+}
+
+.portal-donor .donor-food-slot-badge-paid,
+.portal-app .donor-food-slot-badge-paid {
+  background: var(--msc-orange);
+  color: #fff;
+}
+
+.portal-donor .donor-legend-swatch-need,
+.portal-app .donor-legend-swatch-need {
+  background: rgba(126, 190, 197, 0.25);
+  border: 1px dashed rgba(126, 190, 197, 0.65);
+}
+
+.portal-donor .donor-legend-swatch-booked,
+.portal-app .donor-legend-swatch-booked {
+  background: var(--msc-yellow);
+}
+
+.portal-donor .donor-legend-swatch-paid,
+.portal-app .donor-legend-swatch-paid {
+  background: var(--msc-orange);
+}
+
+/* ─── Portaled header dropdown menus (profile & notifications) ─── */
+
+.donor-dropdown-menu.portal-donor {
+  font-family: 'Rubik', 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--msc-body);
+  background: #fff;
+  border: 1px solid var(--msc-border) !important;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-header {
+  padding: 12px 14px;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-header-name {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--msc-heading);
+  margin: 0;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-header-role {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.75rem;
+  color: #888;
+  margin: 2px 0 0;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-item {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+  border-radius: 0;
+  padding: 10px 14px;
+  outline: none;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-item:focus,
+.donor-dropdown-menu.portal-donor .donor-dropdown-item[data-highlighted] {
+  background: rgba(255, 202, 15, 0.15);
+  color: var(--msc-heading);
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-item-title {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--msc-heading);
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-item-message {
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 300;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-empty {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #888;
+  font-family: 'Rubik', sans-serif;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-view-all {
+  font-weight: 500;
+  color: var(--msc-orange);
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-logout {
+  color: #c0392b;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-logout:focus,
+.donor-dropdown-menu.portal-donor .donor-dropdown-logout[data-highlighted] {
+  background: rgba(192, 57, 43, 0.08);
+  color: #c0392b;
+}
+
+.donor-dropdown-menu.portal-donor .donor-dropdown-separator {
+  background: var(--msc-border);
+  margin: 0;
+}
+
+/* ─── Donor notifications page ─── */
+
+.portal-donor .donor-notification-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.portal-donor .donor-notification-filters .donor-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8125rem;
+  padding: 0.5rem 1rem;
+  min-width: auto;
+}
+
+.portal-donor .donor-notification-card {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.portal-donor .donor-notification-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.portal-donor .donor-notification-unread {
+  border-left: 4px solid var(--msc-orange);
+  background: rgba(255, 102, 51, 0.04);
+}
+
+.portal-donor .donor-notification-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.portal-donor .donor-notification-icon-success {
+  background: rgba(46, 125, 50, 0.12);
+  color: #2e7d32;
+}
+
+.portal-donor .donor-notification-icon-warning {
+  background: rgba(255, 152, 0, 0.15);
+  color: #e65100;
+}
+
+.portal-donor .donor-notification-icon-danger {
+  background: rgba(192, 57, 43, 0.12);
+  color: #c0392b;
+}
+
+.portal-donor .donor-notification-icon-info {
+  background: rgba(126, 190, 197, 0.25);
+  color: var(--msc-teal);
+}
+
+.portal-donor .donor-notification-icon-muted {
+  background: #f5f5f5;
+  color: #888;
+}
+
+.portal-donor .donor-notification-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--msc-border);
+  color: #666;
+  background: #fafafa;
+}
+
+.portal-donor .donor-notification-title {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--msc-heading);
+}
+
+.portal-donor .donor-notification-title-unread {
+  font-weight: 600;
+}
+
+.portal-donor .donor-notification-message {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.8125rem;
+  color: #666;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.portal-donor .donor-notification-time {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.portal-donor .donor-notification-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.portal-donor .donor-notification-action:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--msc-heading);
+}
+
+.portal-donor .donor-notification-action-danger:hover {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+}
+
+.portal-donor .donor-notification-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.portal-donor .donor-notification-empty h3 {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 1.125rem;
+  color: var(--msc-heading);
+  margin: 1rem 0 0.5rem;
+}
+
+.portal-donor .donor-notification-empty p {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.875rem;
+  color: #888;
+}

@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DEMO_PASSWORD, getDemoAccountLabel, LEGACY_DEMO_ACCOUNTS } from '@/lib/devDemoAccounts';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,18 +21,9 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const DEMO_ACCOUNTS = [
-    { role: 'Super Admin', email: 'superadmin@demo.com', color: 'bg-destructive text-destructive-foreground' },
-    
-    { role: 'Finance', email: 'finance@demo.com', color: 'bg-accent text-accent-foreground' },
-    { role: 'Employee', email: 'employee@demo.com', color: 'bg-secondary text-secondary-foreground' },
-    { role: 'Warden', email: 'warden@demo.com', color: 'bg-muted text-muted-foreground' },
-    { role: 'Donor', email: 'donor@demo.com', color: 'bg-primary/20 text-primary' },
-  ];
-
   const handleDemoLogin = (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword('Demo@123');
+    setPassword(DEMO_PASSWORD);
     setTimeout(() => {
       const form = document.querySelector('form');
       form?.requestSubmit();
@@ -112,7 +104,7 @@ const Login = () => {
   };
 
   return (
-    <MainLayout showFooter={false}>
+    <MainLayout>
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
         <Card className="w-full max-w-md animate-scale-in">
           <CardHeader className="text-center">
@@ -182,12 +174,11 @@ const Login = () => {
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1.5 pt-2">
-                  {DEMO_ACCOUNTS.map((account) => (
+                  {LEGACY_DEMO_ACCOUNTS.map((account) => (
                     <div key={account.email} className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Badge className={`${account.color} text-[10px] px-1.5 py-0 shrink-0`}>{account.role}</Badge>
-                        <span className="text-xs text-muted-foreground truncate">{account.email}</span>
-                      </div>
+                      <Badge className={`${account.color} text-[10px] px-1.5 py-0 shrink-0`}>
+                        {getDemoAccountLabel(account.role)}
+                      </Badge>
                       <Button
                         type="button"
                         variant="outline"
@@ -201,7 +192,7 @@ const Login = () => {
                     </div>
                   ))}
                   <p className="text-[10px] text-muted-foreground text-center pt-1">
-                    Password: Demo@123
+                    Password: {DEMO_PASSWORD}
                   </p>
                 </CollapsibleContent>
               </Collapsible>

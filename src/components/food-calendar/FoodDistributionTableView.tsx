@@ -17,15 +17,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import type { DonorWithStats } from '@/hooks/useDonors';
+import { mergeFoodSlotsByCell } from '@/lib/foodSlotUtils';
 
 const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
   MORNING: 'BF',
   AFTERNOON: 'Lun',
   EVENING: 'Din',
   REFRESHMENTS: 'Ref',
+  OUTSIDE_FOOD: 'Out',
 };
 
-const TIME_SLOTS: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS'];
+const TIME_SLOTS: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS', 'OUTSIDE_FOOD'];
 
 interface Trust {
   id: string;
@@ -48,17 +50,35 @@ interface SelectedSlotKey {
 
 interface FoodDistributionTableViewProps {
   preSelectedDonor?: DonorWithStats;
+  /** Limit projects shown (e.g. social worker assigned projects). */
+  homeIds?: string[];
+  /** Hide trust picker and lock to this trust. */
+  lockTrustId?: string;
+  /** Start in multi-select booking mode (default true). */
+  selectModeDefault?: boolean;
+  /**
+   * When true, a single click (outside select mode) opens the booking flow for
+   * that slot instead of the admin create/edit dialog. Used by the social worker portal.
+   */
+  singleClickBooking?: boolean;
 }
 
-export function FoodDistributionTableView({ preSelectedDonor }: FoodDistributionTableViewProps) {
+export function FoodDistributionTableView({
+  preSelectedDonor,
+  homeIds,
+  lockTrustId,
+  selectModeDefault = true,
+  singleClickBooking = false,
+}: FoodDistributionTableViewProps) {
   const { priceMap } = useFoodSlotPricingMap();
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedTrustId, setSelectedTrustId] = useState<string>('');
+  const [selectedTrustId, setSelectedTrustId] = useState<string>(lockTrustId || '');
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [selectMode, setSelectMode] = useState(true);
+  const [selectMode, setSelectMode] = useState(selectModeDefault);
   const [selectedSlots, setSelectedSlots] = useState<Map<string, SelectedSlotKey>>(new Map());
   const [showMultiBookDialog, setShowMultiBookDialog] = useState(false);
+  const [singleBookingSlot, setSingleBookingSlot] = useState<SelectedSlotKey | null>(null);
   const [editDialog, setEditDialog] = useState<{
     open: boolean;
     date: string;
@@ -101,18 +121,24 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
 
   // Auto-select trust
   const effectiveTrustId = useMemo(() => {
+    if (lockTrustId) return lockTrustId;
     if (selectedTrustId) return selectedTrustId;
     if (!isSuperAdmin && user?.trust_id) return user.trust_id;
     if (trusts.length > 0) return trusts[0].id;
     return '';
-  }, [selectedTrustId, isSuperAdmin, user?.trust_id, trusts]);
+  }, [lockTrustId, selectedTrustId, isSuperAdmin, user?.trust_id, trusts]);
 
-  // Fetch homes filtered by trust
+  // Fetch homes filtered by trust (and optional assigned project IDs)
   const { data: allHomes = [] } = useHomes();
   const homes = useMemo(() => {
-    if (!effectiveTrustId) return allHomes;
-    return allHomes.filter(h => h.trust_id === effectiveTrustId);
-  }, [allHomes, effectiveTrustId]);
+    let list = allHomes;
+    if (effectiveTrustId) list = list.filter((h) => h.trust_id === effectiveTrustId);
+    if (homeIds?.length) {
+      const allowed = new Set(homeIds);
+      list = list.filter((h) => allowed.has(h.id));
+    }
+    return list;
+  }, [allHomes, effectiveTrustId, homeIds]);
 
   // Calculate date range for the month
   const startDate = format(startOfMonth(currentDate), 'yyyy-MM-dd');
@@ -141,13 +167,12 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
     return datesInMonth;
   }, [datesInMonth, selectedDates]);
 
-  // Create a lookup map for quick slot access
+  // Create a lookup map for quick slot access (prefer PAID > BOOKED > NEED per cell)
   const slotMap = useMemo(() => {
-    const map = new Map<string, any>();
-    foodSlots.forEach(slot => {
-      const key = `${slot.date}-${slot.home_id}-${slot.time_slot}`;
-      map.set(key, slot);
-    });
+    const map = new Map<string, (typeof foodSlots)[number]>();
+    for (const slot of mergeFoodSlotsByCell(foodSlots)) {
+      map.set(`${slot.date}-${slot.home_id}-${slot.time_slot}`, slot);
+    }
     return map;
   }, [foodSlots]);
 
@@ -207,8 +232,17 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
         }
         return newMap;
       });
+    } else if (singleClickBooking) {
+      // Social worker: a single click opens the booking flow for just this slot.
+      setSingleBookingSlot({
+        date: dateStr,
+        homeId,
+        homeName,
+        timeSlot,
+        existingSlotId: slotData.slotId,
+      });
     } else {
-      // Normal mode - open edit dialog
+      // Admin: open the create/edit dialog for the slot.
       setEditDialog({
         open: true,
         date: dateStr,
@@ -219,7 +253,7 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
         existingSlot,
       });
     }
-  }, [selectMode, effectiveTrustId, slotMap]);
+  }, [selectMode, singleClickBooking, effectiveTrustId, slotMap]);
 
   const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
   const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));
@@ -243,9 +277,13 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
 
   const handleMultiBookSuccess = () => {
     setSelectedSlots(new Map());
-    setSelectMode(false);
     setShowMultiBookDialog(false);
+    setSingleBookingSlot(null);
   };
+
+  const bookingSlots = singleBookingSlot
+    ? [singleBookingSlot]
+    : Array.from(selectedSlots.values());
 
   if (isLoading) {
     return (
@@ -261,7 +299,7 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle>Food Distribution Calendar</CardTitle>
+          <CardTitle>Food Sponsorship Booking</CardTitle>
           <div className="flex items-center gap-4">
             {/* Select Mode Toggle */}
             <Button
@@ -274,8 +312,8 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
               {selectMode ? 'Exit Select Mode' : 'Select Mode'}
             </Button>
 
-            {/* Trust selector for super admins */}
-            {isSuperAdmin && trusts.length > 0 && (
+            {/* Trust selector for super admins (hidden when trust is locked) */}
+            {!lockTrustId && isSuperAdmin && trusts.length > 0 && (
               <Select value={effectiveTrustId} onValueChange={setSelectedTrustId}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select Trust" />
@@ -377,7 +415,7 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
 
           {homes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No homes found for the selected trust.
+              No projects found for the selected trust.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -385,7 +423,7 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
                 <thead>
                   <tr className="bg-muted/50">
                     <th className="border border-border px-3 py-2 text-left font-medium">Date</th>
-                    <th className="border border-border px-3 py-2 text-left font-medium">Home</th>
+                    <th className="border border-border px-3 py-2 text-left font-medium">Project</th>
                     {TIME_SLOTS.map(slot => (
                       <th key={slot} className="border border-border px-3 py-2 text-center font-medium w-16">
                         {TIME_SLOT_LABELS[slot]}
@@ -415,7 +453,11 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
                         {TIME_SLOTS.map(timeSlot => {
                           const slotData = getSlotData(dateStr, home.id, timeSlot);
                           const key = getSlotKey(dateStr, home.id, timeSlot);
-                          const isSelected = selectedSlots.has(key);
+                          const isSelected =
+                            selectedSlots.has(key) ||
+                            (singleBookingSlot?.date === dateStr &&
+                              singleBookingSlot?.homeId === home.id &&
+                              singleBookingSlot?.timeSlot === timeSlot);
                           const isPast = isBefore(date, startOfDay(new Date()));
                           
                           return (
@@ -481,11 +523,16 @@ export function FoodDistributionTableView({ preSelectedDonor }: FoodDistribution
         />
       )}
 
-      {/* Multi-slot booking dialog */}
+      {/* Booking dialog — handles both multi-select and single-click booking */}
       <MultiSlotBookingDialog
-        open={showMultiBookDialog}
-        onOpenChange={setShowMultiBookDialog}
-        selectedSlots={Array.from(selectedSlots.values())}
+        open={showMultiBookDialog || !!singleBookingSlot}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowMultiBookDialog(false);
+            setSingleBookingSlot(null);
+          }
+        }}
+        selectedSlots={bookingSlots}
         trustId={effectiveTrustId}
         onSuccess={handleMultiBookSuccess}
         preSelectedDonor={preSelectedDonor}

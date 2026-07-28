@@ -91,7 +91,7 @@ const About = () => {
                 <Target className="h-12 w-12 mb-4 opacity-80" />
                 <h2 className="font-display text-2xl font-bold mb-4">Our Mission</h2>
                 <p className="opacity-90">
-                  To create a seamless bridge between generous donors and verified care homes, 
+                  To create a seamless bridge between generous donors and verified projects, 
                   ensuring transparent, impactful support reaches those who need it most. 
                   We believe every act of kindness can transform lives.
                 </p>
@@ -186,7 +186,7 @@ const About = () => {
                 carries forward her legacy of selfless service.
               </p>
               <p>
-                Today, we work with multiple care homes across Tamil Nadu, connecting thousands 
+                Today, we work with multiple projects across Tamil Nadu, connecting thousands 
                 of well-wishers with children and elderly who need support. Our unique date-based 
                 sponsorship model allows donors to give on days that matter to them — birthdays, 
                 anniversaries, or in memory of loved ones — making each contribution a meaningful 

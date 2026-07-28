@@ -199,7 +199,7 @@ function TaskCard({ task, onStatusChange, staffUsers, homes }: TaskCardProps) {
           {task.description}
         </p>
 
-        {/* Home */}
+        {/* Project */}
         {home && (
           <Badge variant="secondary" className="text-xs">
             {home.name}

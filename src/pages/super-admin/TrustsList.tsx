@@ -135,7 +135,7 @@ const TrustsList = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Homes</p>
+                  <p className="text-sm text-muted-foreground">Total Projects</p>
                   {isLoading ? <Skeleton className="h-8 w-8" /> : (
                     <p className="text-2xl font-bold text-foreground">{homes.length}</p>
                   )}
@@ -204,7 +204,7 @@ const TrustsList = () => {
                     <TableHead>Trust</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Registration</TableHead>
-                    <TableHead>Homes</TableHead>
+                    <TableHead>Projects</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { pickFoodSlotForTimeSlot, normalizeFoodSlotStatus } from '@/lib/foodSlotUtils';
 import { FoodSlotBadge } from './FoodSlotBadge';
 import { FoodSlot, FoodTimeSlot, FoodSlotStatus, FoodSlotWithDonor } from '@/hooks/useFoodSlots';
 
@@ -12,7 +13,7 @@ interface FoodSlotCellProps {
   compact?: boolean;
 }
 
-const timeSlots: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING'];
+const timeSlots: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS', 'OUTSIDE_FOOD'];
 
 export function FoodSlotCell({
   date,
@@ -24,8 +25,10 @@ export function FoodSlotCell({
   compact = false,
 }: FoodSlotCellProps) {
   const getSlotStatus = (timeSlot: FoodTimeSlot): { status: FoodSlotStatus | 'EMPTY'; slot?: FoodSlot | FoodSlotWithDonor } => {
-    const slot = slots.find((s) => s.time_slot === timeSlot);
-    return slot ? { status: slot.status, slot } : { status: 'EMPTY' };
+    const slot = pickFoodSlotForTimeSlot(slots, timeSlot);
+    return slot
+      ? { status: normalizeFoodSlotStatus(slot.status), slot: { ...slot, status: normalizeFoodSlotStatus(slot.status) } }
+      : { status: 'EMPTY' };
   };
 
   return (
@@ -43,12 +46,11 @@ export function FoodSlotCell({
       </div>
       <div className={cn('flex flex-col gap-1', compact && 'gap-0.5')}>
         {timeSlots.map((timeSlot) => {
-          const { status, slot } = getSlotStatus(timeSlot);
+          const { slot } = getSlotStatus(timeSlot);
           return (
             <FoodSlotBadge
               key={timeSlot}
               timeSlot={timeSlot}
-              status={status}
               compact={compact}
               slotData={slot as FoodSlotWithDonor | undefined}
               onClick={() => onSlotClick(date, timeSlot, slot)}

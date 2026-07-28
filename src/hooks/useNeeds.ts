@@ -218,6 +218,14 @@ export interface UpdateNeedParams {
   description?: string | null;
   max_sponsors_allowed?: number;
   status?: NeedStatus;
+  donation_mode?: DonationMode;
+  required_amount?: number;
+  required_product_qty?: number;
+  product_name?: string | null;
+  product_unit?: string | null;
+  product_specification?: string | null;
+  product_link?: string | null;
+  estimated_unit_price?: number | null;
   // File attachments
   photo_urls?: string[] | null;
   quotation_urls?: string[] | null;

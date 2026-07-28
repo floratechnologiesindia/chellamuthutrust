@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,19 +67,15 @@ import { useHomes } from '@/hooks/useHomes';
 import { useCategories } from '@/hooks/useCategories';
 import { SuperAdminNav } from '@/components/layout/SuperAdminNav';
 import { getCategoryIcon } from '@/lib/categoryIcons';
+import { useActiveProject } from '@/hooks/useActiveProject';
 
 const NeedsList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isWarden = user?.role === 'warden';
+  const { homeId: activeHomeId, assignedProjectIds } = useActiveProject();
   const [searchQuery, setSearchQuery] = useState('');
-  const [homeFilter, setHomeFilter] = useState<string>(() => {
-    // Auto-set home filter for wardens
-    if (user?.role === 'warden' && user?.home_id) {
-      return user.home_id;
-    }
-    return 'all';
-  });
+  const [homeFilter, setHomeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -87,6 +83,12 @@ const NeedsList = () => {
 
   const dashboardPath = user?.role === 'super_admin' ? '/super-admin' : 
                         user?.role === 'warden' ? '/warden' : '/admin';
+
+  useEffect(() => {
+    if (isWarden && activeHomeId) {
+      setHomeFilter(activeHomeId);
+    }
+  }, [isWarden, activeHomeId]);
 
   // Fetch data from Supabase
   const { data: needs = [], isLoading: loadingNeeds } = useNeeds({
@@ -97,6 +99,10 @@ const NeedsList = () => {
   const { data: homes = [] } = useHomes();
   const { data: categories = [] } = useCategories();
   const updateNeed = useUpdateNeed();
+
+  const wardenHomes = isWarden
+    ? homes.filter((h) => assignedProjectIds.includes(h.id))
+    : homes;
 
   // Filter needs by search - include new fields
   const filteredNeeds = needs.filter(need => {
@@ -241,7 +247,7 @@ const NeedsList = () => {
               <ListChecks className="h-8 w-8" />
               Requirements Management
             </h1>
-            <p className="text-muted-foreground mt-1">Create and manage requirements for homes</p>
+            <p className="text-muted-foreground mt-1">Create and manage requirements for projects</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" asChild>
@@ -251,9 +257,9 @@ const NeedsList = () => {
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/admin/homes">
+              <Link to="/admin/projects">
                 <Home className="h-4 w-4 mr-2" />
-                Homes
+                Projects
               </Link>
             </Button>
             <Button asChild>
@@ -350,7 +356,7 @@ const NeedsList = () => {
                 </ToggleGroup>
               </div>
 
-              {/* Search and Home Filter Row */}
+              {/* Search and Project Filter Row */}
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
@@ -366,10 +372,10 @@ const NeedsList = () => {
                 {!isWarden && (
                   <Select value={homeFilter} onValueChange={setHomeFilter}>
                     <SelectTrigger className="w-full md:w-48">
-                      <SelectValue placeholder="All Homes" />
+                      <SelectValue placeholder="All Projects" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Homes</SelectItem>
+                      <SelectItem value="all">All Projects</SelectItem>
                       {homes.map(home => (
                         <SelectItem key={home.id} value={home.id}>{home.name}</SelectItem>
                       ))}
@@ -473,7 +479,7 @@ const NeedsList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead className="whitespace-nowrap">Unit/Home</TableHead>
+                    <TableHead className="whitespace-nowrap">Project</TableHead>
                     <TableHead className="whitespace-nowrap">Staff Name</TableHead>
                     <TableHead className="whitespace-nowrap">Item Required</TableHead>
                     <TableHead className="whitespace-nowrap">Qty</TableHead>
