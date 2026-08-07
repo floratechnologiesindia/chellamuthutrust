@@ -78,6 +78,8 @@ import {
   useAllCompletionPhotos,
 } from '@/hooks/useHomeWorkDone';
 import { WorkDonePhotoGallery } from '@/components/reports/WorkDonePhotoGallery';
+import { FoodEventMediaPendingList } from '@/components/reports/FoodEventMediaPendingList';
+import { FoodEventMediaApprovedList } from '@/components/reports/FoodEventMediaApprovedList';
 import { RecentCompletedItems, type CompletedItemData } from '@/components/reports/RecentCompletedItems';
 import { SendToDonorDialog, type SelectedWorkItem } from '@/components/reports/SendToDonorDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,6 +125,7 @@ const Reports = () => {
             value: item.value,
             photos: item.photos || [],
             reportSentAt: item.reportSentAt,
+            legacySendBlocked: item.legacySendBlocked,
           });
           return n;
         });
@@ -1104,6 +1107,10 @@ const Reports = () => {
                 )}
               </CardContent>
             </Card>
+
+            <FoodEventMediaPendingList />
+
+            <FoodEventMediaApprovedList />
 
             <RecentCompletedItems
               foodSlots={completedFoodSlots}

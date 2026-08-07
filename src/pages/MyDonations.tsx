@@ -26,6 +26,7 @@ import {
   Wallet,
   Utensils,
   FileText,
+  Video,
 } from 'lucide-react';
 import {
   useDonations,
@@ -43,6 +44,8 @@ import {
 import { useManualFoodSlotPayment } from '@/hooks/useManualPayment';
 import { useDonorReceipts, loadDonorReceiptByReference } from '@/hooks/useDonorReceipts';
 import { getFoodSlotBalanceDue, isFoodSlotFullyPaid, slotNeedsDonorPayment } from '@/lib/foodSlotUtils';
+import { formatFoodSlotLabel } from '@/lib/foodSlotConstants';
+import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
 import { isManualPaymentsEnabled, isRazorpayEnabled } from '@/lib/manualPayments';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,13 +96,8 @@ const bookingRequestStatusLabels: Record<FoodSlotBookingRequest['status'], strin
   CANCELLED: 'Cancelled',
 };
 
-const timeSlotLabels: Record<string, string> = {
-  MORNING: 'Breakfast',
-  AFTERNOON: 'Lunch',
-  EVENING: 'Dinner',
-  REFRESHMENTS: 'Refreshments',
-  OUTSIDE_FOOD: 'Outside Food',
-};
+const foodSlotLabel = (timeSlot: string, mealType?: string | null) =>
+  formatFoodSlotLabel(timeSlot as FoodTimeSlot, mealType);
 
 const recentTimestamp = (createdAt?: string | null, fallbackDate?: string) => {
   if (createdAt) return new Date(createdAt).getTime();
@@ -497,7 +495,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
         donorName: user?.name || 'Donor',
         donorEmail: getRazorpayDonorEmail(user?.email),
         donorPhone: user?.phone,
-        description: `${timeSlotLabels[slot.time_slot] || slot.time_slot} sponsorship · ${slot.homes?.name || 'project'}`,
+        description: `${foodSlotLabel(slot.time_slot, slot.meal_type)} sponsorship · ${slot.homes?.name || 'project'}`,
         onSuccess: () => {
           toast({
             title: 'Payment Successful!',
@@ -563,7 +561,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
       'Food Sponsorship',
       format(new Date(slot.date), 'yyyy-MM-dd'),
       slot.homes?.name || '',
-      timeSlotLabels[slot.time_slot] || slot.time_slot,
+      foodSlotLabel(slot.time_slot, slot.meal_type),
       'ONE_TIME',
       (slot.amount ?? 0).toString(),
       isFoodSlotFullyPaid(slot) ? 'PAID' : slot.payment_status || 'PENDING',
@@ -574,7 +572,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
       'Food Booking Request',
       format(new Date(req.date), 'yyyy-MM-dd'),
       req.home_name || '',
-      timeSlotLabels[req.time_slot] || req.time_slot,
+      foodSlotLabel(req.time_slot),
       'ONE_TIME',
       req.amount.toString(),
       req.status,
@@ -839,7 +837,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
 
   const renderFoodSlotCard = (slot: FoodSlotWithHome) => {
     const homeName = slot.homes?.name || 'Unknown Project';
-    const slotLabel = timeSlotLabels[slot.time_slot] || slot.time_slot;
+    const slotLabel = foodSlotLabel(slot.time_slot, slot.meal_type);
     const totalAmount = slot.amount ?? 0;
     const balanceDue = getFoodSlotBalanceDue(slot);
     const amountPaid = slot.amount_paid ?? 0;
@@ -880,6 +878,46 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
               )}
               {slot.reason && (
                 <p className="text-sm italic mt-2 text-muted-foreground">"{slot.reason}"</p>
+              )}
+              {slot.photos_shared_at &&
+                ((slot.completion_photos?.length || 0) > 0 || (slot.completion_videos?.length || 0) > 0) && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium">Event photos &amp; videos</p>
+                  {(slot.completion_photos?.length || 0) > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {slot.completion_photos!.map((url) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="h-16 w-16 rounded-md overflow-hidden border hover:opacity-90"
+                        >
+                          <img src={url} alt="" className="h-full w-full object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {(slot.completion_videos?.length || 0) > 0 && (
+                    <div className="space-y-1">
+                      {slot.completion_videos!.map((url, i) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                          <Video className="h-4 w-4" />
+                          Watch video {i + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {slot.completion_notes && (
+                    <p className="text-xs text-muted-foreground">{slot.completion_notes}</p>
+                  )}
+                </div>
               )}
               {needsPayment && (isRazorpayEnabled() || isManualPaymentsEnabled()) && (
                 <div className="mt-3">
@@ -925,7 +963,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
 
   const renderFoodPledgeCard = (pledge: FoodRecurringPledge) => {
     const homeName = pledge.homes?.name || 'Unknown Project';
-    const slotLabel = timeSlotLabels[pledge.time_slot] || pledge.time_slot;
+    const slotLabel = foodSlotLabel(pledge.time_slot);
     const freqLabel = pledge.frequency === 'annual' ? 'Annual' : 'Monthly';
     const isOverdue =
       pledge.status === 'ACTIVE' &&
@@ -1042,7 +1080,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
 
   const renderBookingRequestCard = (request: FoodSlotBookingRequest) => {
     const homeName = request.home_name || 'Unknown Project';
-    const slotLabel = timeSlotLabels[request.time_slot] || request.time_slot;
+    const slotLabel = foodSlotLabel(request.time_slot);
 
     return (
       <Card key={`req-${request.id}`} className="hover:shadow-md transition-shadow border-dashed">

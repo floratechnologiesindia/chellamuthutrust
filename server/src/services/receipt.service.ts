@@ -137,12 +137,15 @@ export async function issueFoodSlotReceipt(params: {
 
   const home = await Home.findById(slot.home_id).select('name').lean();
   const homeName = home?.name;
-  const slotLabel = TIME_SLOT_LABELS[slot.time_slot] || slot.time_slot;
+  const slotLabel =
+    slot.time_slot === 'OUTSIDE_FOOD' && slot.meal_type
+      ? `Outside Food (${slot.meal_type})`
+      : TIME_SLOT_LABELS[slot.time_slot] || slot.time_slot;
   const description = `${slotLabel} sponsorship · ${homeName || 'home'} · ${slot.date}`;
 
   const invoiceData = buildInvoiceSnapshot(donor, {
     date: slot.date,
-    description: `${slotLabel} meal sponsorship${slot.notes || slot.occasion_note ? ` — ${slot.notes || slot.occasion_note}` : ''}`,
+    description: `${slotLabel} meal sponsorship${slot.notes || slot.note || slot.occasion_note ? ` — ${slot.notes || slot.note || slot.occasion_note}` : slot.reason ? ` — ${slot.reason}` : ''}`,
     amount: amountPaid,
     homeName,
     donationType: 'food_slot',

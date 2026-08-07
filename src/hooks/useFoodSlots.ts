@@ -30,13 +30,26 @@ export interface FoodSlot {
   payment_status: string | null;
   amount_paid: number | null;
   payment_mode: string | null;
-  donate_on_behalf_of: string | null;
   donation_id?: string | null;
+  cheque_number?: string | null;
+  bank_name?: string | null;
+  cheque_image_url?: string | null;
+  cheque_status?: string | null;
+  donate_on_behalf_of: string | null;
+  meal_type?: string | null;
   report_sent_at?: string | null;
+  acknowledgement_sent_at?: string | null;
+  payment_reminder_sent_at?: string | null;
+  receipt_thankyou_sent_at?: string | null;
   donor_name?: string | null;
   completion_status: string | null;
   completion_notes: string | null;
   completion_photos: string[] | null;
+  completion_videos?: string[] | null;
+  event_media_status?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  event_media_submitted_at?: string | null;
+  event_media_rejection_notes?: string | null;
+  photos_shared_at?: string | null;
 }
 
 interface CreateFoodSlotParams {
@@ -58,6 +71,13 @@ interface UpdateFoodSlotParams {
 // Extended type for food slots with donor info
 export interface FoodSlotWithDonor extends FoodSlot {
   profiles?: { name: string; email: string; phone: string | null } | null;
+}
+
+function withDonorProfile(slot: FoodSlotWithDonor): FoodSlotWithDonor {
+  return {
+    ...slot,
+    donor_name: slot.donor_name || slot.profiles?.name || null,
+  };
 }
 
 // Fetch all future booked food slots for a home (for warden help management)
@@ -82,7 +102,7 @@ export function useFutureBookedFoodSlots(homeId: string | null) {
         .order('date', { ascending: true });
 
       if (error) throw error;
-      return data as FoodSlotWithDonor[];
+      return (data as FoodSlotWithDonor[]).map(withDonorProfile);
     },
     enabled: !!homeId,
   });
@@ -106,7 +126,43 @@ export function useCompletedFoodSlots(homeId: string | null) {
         .order('date', { ascending: false });
 
       if (error) throw error;
-      return data as FoodSlotWithDonor[];
+      return (data as FoodSlotWithDonor[]).map(withDonorProfile);
+    },
+    enabled: !!homeId,
+  });
+}
+
+/** Past booked meals that still need event media uploaded. */
+export function usePastFoodSlotsNeedingMedia(homeId: string | null) {
+  return useQuery({
+    queryKey: ['past-food-slots-needing-media', homeId],
+    queryFn: async () => {
+      if (!homeId) return [];
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('food_slots')
+        .select(`
+          *,
+          profiles!food_slots_donor_id_fkey (name, email, phone)
+        `)
+        .eq('home_id', homeId)
+        .eq('status', 'BOOKED')
+        .lt('date', today)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      return (data as FoodSlotWithDonor[])
+        .map(withDonorProfile)
+        .filter((slot) => {
+          if (slot.photos_shared_at) return false;
+          if (slot.event_media_status === 'PENDING' || slot.event_media_status === 'APPROVED') {
+            return false;
+          }
+          return true;
+        });
     },
     enabled: !!homeId,
   });
@@ -339,6 +395,7 @@ interface SlotIndividualDetails {
   sponsor_for: string;
   note: string;
   donate_on_behalf_of: string | null;
+  meal_type?: string | null;
 }
 
 export interface BulkBookFoodSlotsParams {
@@ -356,7 +413,15 @@ export interface BulkBookFoodSlotsParams {
     note: string;
     amount: number;
     payment_status: string;
+    payment_mode?: string | null;
+    amount_paid?: number | null;
+    donation_id?: string | null;
+    cheque_number?: string | null;
+    bank_name?: string | null;
+    cheque_image_url?: string | null;
+    cheque_status?: string | null;
     donate_on_behalf_of?: string | null;
+    meal_type?: string | null;
   };
   trustId: string;
   useIndividualDetails?: boolean;
@@ -379,13 +444,37 @@ export function useBulkBookFoodSlots() {
               sponsor_for: slot.individualDetails.sponsor_for,
               note: slot.individualDetails.note,
               donate_on_behalf_of: slot.individualDetails.donate_on_behalf_of,
+              meal_type: slot.individualDetails.meal_type,
             }
           : {
               reason: bookingData.reason,
               sponsor_for: bookingData.sponsor_for,
               note: bookingData.note,
               donate_on_behalf_of: bookingData.donate_on_behalf_of || null,
+              meal_type: bookingData.meal_type,
             };
+
+        const slotMealType =
+          slot.timeSlot === 'OUTSIDE_FOOD'
+            ? slotBookingData.meal_type || null
+            : null;
+
+        const slotAmount = bookingData.amount / slots.length;
+        const slotAmountPaid =
+          bookingData.amount_paid != null
+            ? bookingData.amount_paid / slots.length
+            : null;
+
+        const paymentPayload = {
+          payment_status: paymentStatus,
+          payment_mode: bookingData.payment_mode ?? null,
+          amount_paid: slotAmountPaid,
+          donation_id: bookingData.donation_id ?? null,
+          cheque_number: bookingData.cheque_number ?? null,
+          bank_name: bookingData.bank_name ?? null,
+          cheque_image_url: bookingData.cheque_image_url ?? null,
+          cheque_status: bookingData.cheque_status ?? null,
+        };
 
         if (slot.existingSlotId) {
           // Update existing slot
@@ -398,9 +487,10 @@ export function useBulkBookFoodSlots() {
               sponsor_for: slotBookingData.sponsor_for,
               note: slotBookingData.note,
               donate_on_behalf_of: slotBookingData.donate_on_behalf_of,
-              amount: bookingData.amount / slots.length, // Divide amount across slots
-              payment_status: paymentStatus,
+              meal_type: slotMealType,
+              amount: slotAmount,
               current_sponsors_count: 1,
+              ...paymentPayload,
             })
             .eq('id', slot.existingSlotId)
             .select()
@@ -423,10 +513,11 @@ export function useBulkBookFoodSlots() {
               sponsor_for: slotBookingData.sponsor_for,
               note: slotBookingData.note,
               donate_on_behalf_of: slotBookingData.donate_on_behalf_of,
-              amount: bookingData.amount / slots.length,
-              payment_status: paymentStatus,
+              meal_type: slotMealType,
+              amount: slotAmount,
               current_sponsors_count: 1,
               created_by: user?.id,
+              ...paymentPayload,
             })
             .select()
             .single();
@@ -470,42 +561,51 @@ export function useDonorFoodSlots(donorId: string | null) {
   });
 }
 
-// Hook to complete a food slot with report
+// Hook to complete a food slot with report — routes through event media approval workflow
 export function useCompleteFoodSlot() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      slotId, 
-      notes, 
-      photoUrls 
-    }: { 
-      slotId: string; 
-      notes: string; 
-      photoUrls: string[] 
+    mutationFn: async ({
+      slotId,
+      notes,
+      photoUrls,
+      videoUrls = [],
+    }: {
+      slotId: string;
+      notes: string;
+      photoUrls: string[];
+      videoUrls?: string[];
     }) => {
-      const { data, error } = await supabase
-        .from('food_slots')
-        .update({
-          completion_status: 'COMPLETED',
-          completion_notes: notes,
-          completion_photos: photoUrls,
-        })
-        .eq('id', slotId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/food-slots/${slotId}/submit-event-media`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ photos: photoUrls, videos: videoUrls, notes }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.message || `Request failed (${res.status})`);
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['food-slots'] });
       queryClient.invalidateQueries({ queryKey: ['future-booked-food-slots'] });
       queryClient.invalidateQueries({ queryKey: ['completed-food-slots'] });
-      toast.success('Food slot marked as completed');
+      queryClient.invalidateQueries({ queryKey: ['past-food-slots-needing-media'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-food-event-media'] });
+      queryClient.invalidateQueries({ queryKey: ['warden-task-bar'] });
+      toast.success('Event media submitted for admin review');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to complete food slot');
+      toast.error(error.message || 'Failed to submit event media');
     },
   });
 }

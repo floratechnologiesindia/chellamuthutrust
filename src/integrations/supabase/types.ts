@@ -437,8 +437,16 @@ export type Database = {
           home_id: string
           id: string
           max_sponsors_allowed: number | null
+          meal_type: string | null
           note: string | null
           payment_status: string | null
+          payment_mode: string | null
+          amount_paid: number | null
+          donation_id: string | null
+          cheque_number: string | null
+          bank_name: string | null
+          cheque_image_url: string | null
+          cheque_status: string | null
           reason: string | null
           report_sent_at: string | null
           sponsor_for: string | null
@@ -461,8 +469,16 @@ export type Database = {
           home_id: string
           id?: string
           max_sponsors_allowed?: number | null
+          meal_type?: string | null
           note?: string | null
           payment_status?: string | null
+          payment_mode?: string | null
+          amount_paid?: number | null
+          donation_id?: string | null
+          cheque_number?: string | null
+          bank_name?: string | null
+          cheque_image_url?: string | null
+          cheque_status?: string | null
           reason?: string | null
           report_sent_at?: string | null
           sponsor_for?: string | null
@@ -485,8 +501,16 @@ export type Database = {
           home_id?: string
           id?: string
           max_sponsors_allowed?: number | null
+          meal_type?: string | null
           note?: string | null
           payment_status?: string | null
+          payment_mode?: string | null
+          amount_paid?: number | null
+          donation_id?: string | null
+          cheque_number?: string | null
+          bank_name?: string | null
+          cheque_image_url?: string | null
+          cheque_status?: string | null
           reason?: string | null
           report_sent_at?: string | null
           sponsor_for?: string | null
@@ -1479,7 +1503,7 @@ export type Database = {
         | "OVERDUE"
       donation_type: "ONE_TIME" | "RECURRING"
       food_slot_status: "NEED" | "BOOKED" | "PAID"
-      food_time_slot: "MORNING" | "AFTERNOON" | "EVENING" | "REFRESHMENTS"
+      food_time_slot: "MORNING" | "REFRESHMENTS" | "AFTERNOON" | "EVENING" | "OUTSIDE_FOOD"
       help_mode: "ONE_TIME" | "RECURRING"
       home_type:
         | "children_home"
@@ -1653,7 +1677,7 @@ export const Constants = {
       ],
       donation_type: ["ONE_TIME", "RECURRING"],
       food_slot_status: ["NEED", "BOOKED", "PAID"],
-      food_time_slot: ["MORNING", "AFTERNOON", "EVENING", "REFRESHMENTS"],
+      food_time_slot: ["MORNING", "REFRESHMENTS", "AFTERNOON", "EVENING", "OUTSIDE_FOOD"],
       help_mode: ["ONE_TIME", "RECURRING"],
       home_type: [
         "children_home",

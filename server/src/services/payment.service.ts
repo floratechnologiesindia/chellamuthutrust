@@ -87,6 +87,10 @@ export interface CompleteFoodSlotPaymentInput {
   donation_for?: string;
   event_date?: string;
   donor_board_name?: string;
+  meal_type?: string;
+  reason?: string;
+  sponsor_for?: string;
+  donate_on_behalf_of?: string;
 }
 
 /** Book slot on payment, or apply balance payment on an already-booked slot. */
@@ -107,6 +111,10 @@ export async function completeFoodSlotPayment(
     donation_for: donationFor,
     event_date: eventDate,
     donor_board_name: donorBoardName,
+    meal_type: mealType,
+    reason,
+    sponsor_for: sponsorFor,
+    donate_on_behalf_of: donateOnBehalfOf,
   } = input;
 
   if (!homeId || !trustId || !date || !timeSlot || amount == null) {
@@ -177,6 +185,12 @@ export async function completeFoodSlotPayment(
     foodSlotId,
     occasionType,
     occasionNote,
+    donationFor,
+    eventDate,
+    mealType,
+    reason,
+    sponsorFor,
+    donateOnBehalfOf,
   });
 
   await notifyDonorFoodSlotPaymentSuccess(donorId, slot, amount);

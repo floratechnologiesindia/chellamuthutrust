@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { sendFoodReceiptThankYou } from '@/lib/sendFoodReceiptThankYou';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -117,6 +118,19 @@ export function useUpdateWardenHomeProfile() {
   });
 }
 
+export function useSendFoodReceiptThankYou() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ slotIds, force }: { slotIds: string[]; force?: boolean }) =>
+      sendFoodReceiptThankYou(slotIds, { force }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['food-slots'] });
+      qc.invalidateQueries({ queryKey: ['future-booked-food-slots'] });
+      qc.invalidateQueries({ queryKey: ['completed-food-slots'] });
+    },
+  });
+}
+
 export function useSendFoodThankYou() {
   const qc = useQueryClient();
   return useMutation({
@@ -136,5 +150,50 @@ export function useShareFoodPhotos() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warden-task-bar'] });
     },
+  });
+}
+
+export function useMarkChequePaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (slotId: string) =>
+      authFetch(`/food-slots/${slotId}/mark-cheque-paid`, { method: 'POST', body: '{}' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['food-slots'] });
+      qc.invalidateQueries({ queryKey: ['food-slots-all-homes'] });
+      qc.invalidateQueries({ queryKey: ['future-booked-food-slots'] });
+      qc.invalidateQueries({ queryKey: ['warden-task-bar'] });
+    },
+  });
+}
+
+export function useSendFoodPaymentReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ slotId, force }: { slotId: string; force?: boolean }) =>
+      authFetch(`/food-slots/${slotId}/send-payment-reminder`, {
+        method: 'POST',
+        body: JSON.stringify({ force: force === true }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['food-slots'] });
+      qc.invalidateQueries({ queryKey: ['future-booked-food-slots'] });
+      qc.invalidateQueries({ queryKey: ['food-payment-reminder-eligible'] });
+      qc.invalidateQueries({ queryKey: ['warden-task-bar'] });
+    },
+  });
+}
+
+export function useFoodPaymentReminderEligible(homeId: string | null) {
+  return useQuery({
+    queryKey: ['food-payment-reminder-eligible', homeId],
+    queryFn: async () => {
+      if (!homeId) return { items: [], count: 0 };
+      return authFetch(`/food-slots/payment-reminder-eligible?homeId=${homeId}`) as Promise<{
+        items: Array<{ id: string; days_pending: number; balance_due: number }>;
+        count: number;
+      }>;
+    },
+    enabled: !!homeId,
   });
 }

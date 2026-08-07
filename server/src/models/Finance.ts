@@ -39,17 +39,43 @@ export interface IFoodSlot {
   _id: string; home_id: string; trust_id: string; donor_id?: string; donor_name?: string; date: string;
   time_slot: string; meal_type?: string; amount?: number; status: string;
   payment_status?: string; amount_paid?: number; payment_mode?: string;
-  notes?: string; donation_id?: string;
-  occasion_type?: string; occasion_note?: string; completion_photos?: string[]; completion_notes?: string; report_sent_at?: string;
+  notes?: string; note?: string; donation_id?: string;
+  reason?: string; sponsor_for?: string; donate_on_behalf_of?: string;
+  cheque_number?: string; bank_name?: string; cheque_image_url?: string; cheque_status?: string;
+  occasion_type?: string; occasion_note?: string;
+  completion_status?: string; completion_photos?: string[]; completion_videos?: string[];
+  completion_notes?: string; report_sent_at?: string;
+  event_media_status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  event_media_submitted_at?: string;
+  event_media_approved_at?: string;
+  event_media_approved_by?: string;
+  event_media_rejection_notes?: string;
+  photos_shared_at?: string;
+  acknowledgement_sent_at?: string;
+  payment_reminder_sent_at?: string;
+  staff_admin_booking_notify_sent_at?: string;
+  receipt_thankyou_sent_at?: string;
   created_at: Date; updated_at: Date;
 }
 
 const foodSlotSchema = new Schema<IFoodSlot>({
   _id: uuidField, home_id: { type: String, required: true, index: true }, trust_id: { type: String, required: true },
   donor_id: String, donor_name: String, date: { type: String, required: true, index: true }, time_slot: { type: String, required: true },
-  meal_type: String, amount: Number, status: { type: String, default: 'NEED' }, notes: String, donation_id: String,
+  meal_type: String, amount: Number, status: { type: String, default: 'NEED' },
+  notes: String, note: String, donation_id: String,
+  reason: String, sponsor_for: String, donate_on_behalf_of: String,
+  cheque_number: String, bank_name: String, cheque_image_url: String,
+  cheque_status: { type: String, default: 'PENDING' },
   payment_status: String, amount_paid: Number, payment_mode: String,
-  occasion_type: String, occasion_note: String, completion_photos: [String], completion_notes: String, report_sent_at: String,
+  occasion_type: String, occasion_note: String,
+  completion_status: String, completion_photos: [String], completion_videos: [String],
+  completion_notes: String, report_sent_at: String,
+  event_media_status: String, event_media_submitted_at: String,
+  event_media_approved_at: String, event_media_approved_by: String,
+  event_media_rejection_notes: String, photos_shared_at: String,
+  acknowledgement_sent_at: String, payment_reminder_sent_at: String,
+  staff_admin_booking_notify_sent_at: String,
+  receipt_thankyou_sent_at: String,
 }, timestamps);
 
 export const FoodSlot = mongoose.model<IFoodSlot>('FoodSlot', foodSlotSchema);

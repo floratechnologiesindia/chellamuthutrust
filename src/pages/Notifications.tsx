@@ -76,6 +76,8 @@ const Notifications = () => {
       case 'pay_later_received':
       case 'booking_confirmed':
       case 'booking_declined':
+      case 'food_slot_booking_request':
+      case 'admin_food_booking':
       case 'calendar_reminder':
       case 'open_slots_digest':
         return <Bell className="h-5 w-5" />;
@@ -176,6 +178,8 @@ const Notifications = () => {
       recurring_payment_due: 'Payment',
       task_assigned: 'Task',
       task_due: 'Task Due',
+      food_slot_booking_request: 'Food Booking',
+      admin_food_booking: 'Food Booking',
     };
     return labels[type] || 'Notification';
   };

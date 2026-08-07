@@ -21,6 +21,9 @@ import { invalidateDonorNotifications } from '@/hooks/useNotifications';
 import { getRazorpayDonorEmail } from '@/lib/donorEmail';
 import { apiFetch } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { buildFoodDonationSummary } from '@/lib/foodDonationSummary';
+import { FOOD_OCCASION_LABELS } from '@/lib/foodDonationSummary';
+import { formatFoodSlotLabel } from '@/lib/foodSlotConstants';
 
 type CheckoutStep = 'otp' | 'details' | 'preview' | 'payment' | 'success' | 'failure';
 
@@ -77,7 +80,11 @@ export const DonorFoodSlotCheckout = ({
 
   const amount = existingSlot?.amount ?? priceMap[timeSlot] ?? 75;
   const dateStr = format(date, 'yyyy-MM-dd');
-  const summary = `${slotLabel} on ${format(date, 'dd MMM yyyy')} · ${homeName}`;
+  const displaySlotLabel = formatFoodSlotLabel(
+    timeSlot,
+    existingSlot?.meal_type || donationDetails?.outside_meal_type,
+  );
+  const summary = `${displaySlotLabel} on ${format(date, 'dd MMM yyyy')} · ${homeName}`;
   const slotOpen = !existingSlot || isSlotOpen(existingSlot.status);
 
   const donorName = donationDetails?.name || user?.name || 'Donor';
@@ -114,6 +121,20 @@ export const DonorFoodSlotCheckout = ({
     recurring_frequency: recurringFrequencyForApi,
     donation_for: donationDetails?.donation_for,
     event_date: donationDetails?.event_date,
+    meal_type: timeSlot === 'OUTSIDE_FOOD' ? donationDetails?.outside_meal_type : undefined,
+    reason: donationDetails
+      ? buildFoodDonationSummary({
+          homeName,
+          timeSlot,
+          slotLabel,
+          outsideMealType: donationDetails.outside_meal_type,
+          details: donationDetails,
+        })
+      : undefined,
+    sponsor_for: donationDetails
+      ? FOOD_OCCASION_LABELS[donationDetails.occasion_type]
+      : undefined,
+    donate_on_behalf_of: donationDetails?.donation_for,
   };
 
   const refreshFoodSlots = async () => {
@@ -193,6 +214,16 @@ export const DonorFoodSlotCheckout = ({
       recurring_frequency: recurringFrequencyForApi,
       donation_for: donationDetails.donation_for,
       event_date: donationDetails.event_date,
+      meal_type: timeSlot === 'OUTSIDE_FOOD' ? donationDetails.outside_meal_type : undefined,
+      reason: buildFoodDonationSummary({
+        homeName,
+        timeSlot,
+        slotLabel,
+        outsideMealType: donationDetails.outside_meal_type,
+        details: donationDetails,
+      }),
+      sponsor_for: FOOD_OCCASION_LABELS[donationDetails.occasion_type],
+      donate_on_behalf_of: donationDetails.donation_for,
     });
   };
 
@@ -214,8 +245,8 @@ export const DonorFoodSlotCheckout = ({
         title="Meal Sponsored!"
         message={
           donationDetails?.recurring_frequency && donationDetails.recurring_frequency !== 'one_time'
-            ? `Thank you! Your ${slotLabel.toLowerCase()} sponsorship for ${homeName} is confirmed, and a ${donationDetails.recurring_frequency} pledge is active.`
-            : `Thank you! Your ${slotLabel.toLowerCase()} sponsorship for ${homeName} is confirmed.`
+            ? `Thank you! Your ${displaySlotLabel.toLowerCase()} sponsorship for ${homeName} is confirmed, and a ${donationDetails.recurring_frequency} pledge is active.`
+            : `Thank you! Your ${displaySlotLabel.toLowerCase()} sponsorship for ${homeName} is confirmed.`
         }
         amount={amount}
         onClose={handleClose}
@@ -255,6 +286,7 @@ export const DonorFoodSlotCheckout = ({
         onSubmit={saveDonationDetails}
         isSubmitting={savingDetails}
         isExistingDonor={isExistingDonor}
+        timeSlot={timeSlot}
       />
     );
   }

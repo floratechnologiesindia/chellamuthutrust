@@ -2,14 +2,7 @@ import type { InvoiceData } from '@/components/homes/InvoicePreview';
 import type { DonationPayment, DonationWithRelations } from '@/hooks/useDonations';
 import type { FoodSlot } from '@/hooks/useFoodSlots';
 import { isFoodSlotFullyPaid } from '@/lib/foodSlotUtils';
-
-const TIME_SLOT_LABELS: Record<string, string> = {
-  MORNING: 'Breakfast',
-  AFTERNOON: 'Lunch',
-  EVENING: 'Dinner',
-  REFRESHMENTS: 'Refreshments',
-  OUTSIDE_FOOD: 'Outside Food',
-};
+import { formatFoodSlotLabel } from '@/lib/foodSlotConstants';
 
 export type ReceiptTarget =
   | { kind: 'food'; id: string }
@@ -107,7 +100,10 @@ export function buildFoodSlotReceiptData(
   slot: FoodSlot & { homes?: { name: string } | null },
   profile: DonorReceiptProfile,
 ): Omit<InvoiceData, 'receiptNumber'> {
-  const slotLabel = TIME_SLOT_LABELS[slot.time_slot] || slot.time_slot;
+  const slotLabel = formatFoodSlotLabel(
+    slot.time_slot as import('@/hooks/useFoodSlots').FoodTimeSlot,
+    slot.meal_type,
+  );
   const reference = `food-${slot.id}`;
 
   return {

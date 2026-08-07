@@ -21,6 +21,9 @@ export interface CompletedFoodSlot {
   home_name: string;
   completion_notes: string | null;
   completion_photos: string[] | null;
+  completion_videos?: string[] | null;
+  event_media_status?: string | null;
+  photos_shared_at?: string | null;
   completed_at: string;
   report_sent_at: string | null;
 }
@@ -176,6 +179,9 @@ export function useCompletedFoodSlots(homeId?: string, dateRange?: number) {
           amount,
           completion_notes,
           completion_photos,
+          completion_videos,
+          event_media_status,
+          photos_shared_at,
           updated_at,
           donor_id,
           report_sent_at,
@@ -203,6 +209,9 @@ export function useCompletedFoodSlots(homeId?: string, dateRange?: number) {
         home_name: (slot.homes as any)?.name || 'Unknown',
         completion_notes: slot.completion_notes,
         completion_photos: slot.completion_photos,
+        completion_videos: (slot as any).completion_videos,
+        event_media_status: (slot as any).event_media_status,
+        photos_shared_at: (slot as any).photos_shared_at,
         completed_at: slot.updated_at,
         report_sent_at: (slot as any).report_sent_at,
       })) as CompletedFoodSlot[] || [];

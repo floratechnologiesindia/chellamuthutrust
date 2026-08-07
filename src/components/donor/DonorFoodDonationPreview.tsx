@@ -50,8 +50,23 @@ export const DonorFoodDonationPreview = ({
 }: DonorFoodDonationPreviewProps) => {
   const [showBreakup, setShowBreakup] = useState(false);
   const dateLabel = format(date, 'dd MMM yyyy');
-  const summary = buildFoodDonationSummary({ homeName, timeSlot, slotLabel, details });
-  const breakup = formatFoodPaymentBreakup({ amount, slotLabel, homeName, dateLabel });
+  const outsideMealType =
+    timeSlot === 'OUTSIDE_FOOD' ? details.outside_meal_type : undefined;
+  const summary = buildFoodDonationSummary({
+    homeName,
+    timeSlot,
+    slotLabel,
+    outsideMealType,
+    details,
+  });
+  const breakup = formatFoodPaymentBreakup({
+    amount,
+    slotLabel,
+    homeName,
+    dateLabel,
+    timeSlot,
+    outsideMealType,
+  });
   const showRemarks =
     Boolean(details.occasion_note) &&
     (details.occasion_type === 'special_day' || details.occasion_type === 'other');
@@ -79,7 +94,8 @@ export const DonorFoodDonationPreview = ({
         />
         <DetailRow label="Sponsorship" value={RECURRING_FREQUENCY_LABELS[details.recurring_frequency]} />
         <DetailRow label="Project" value={homeName} />
-        <DetailRow label="Meal Slot" value={`${slotLabel} · ${dateLabel}`} />
+        {outsideMealType && <DetailRow label="Outside Meal" value={outsideMealType} />}
+        <DetailRow label="Meal Slot" value={`${slotLabel}${outsideMealType ? ` (${outsideMealType})` : ''} · ${dateLabel}`} />
       </div>
 
       <div className="donor-card p-4 space-y-2" style={{ background: 'rgba(255, 202, 15, 0.08)' }}>

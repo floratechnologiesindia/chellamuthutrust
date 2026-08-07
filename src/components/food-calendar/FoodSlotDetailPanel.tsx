@@ -38,6 +38,7 @@ import type {
 import { cn } from '@/lib/utils';
 import { useFoodSlotPricingMap } from '@/hooks/useFoodSlotPricing';
 import { formatCurrency } from '@/lib/formatters';
+import { formatFoodSlotLabel } from '@/lib/foodSlotConstants';
 import type { FoodSlotRazorpayPayRequest } from '@/lib/foodSlotRazorpay';
 
 interface FoodSlotDetailPanelProps {
@@ -131,6 +132,8 @@ export function FoodSlotDetailPanel({
 
   const slotOpen = !existingSlot || isSlotOpen(existingSlot.status);
   const slotBooked = existingSlot && isSlotBooked(existingSlot.status);
+  const slotDisplayLabel =
+    timeSlot != null ? formatFoodSlotLabel(timeSlot, existingSlot?.meal_type) : '';
 
   const isLoading = isSponsorLoading || createSlot.isPending || updateSlot.isPending || deleteSlot.isPending || sponsorSlot.isPending || completePayment.isPending;
 
@@ -208,7 +211,7 @@ export function FoodSlotDetailPanel({
           user_id: u.user_id,
           type: 'payment_awaiting_assignment' as const,
           title: 'Food Sponsorship Pending Payment',
-          message: `A ${slotLabels[timeSlot].label} food slot on ${format(date, 'yyyy-MM-dd')} at ${homeName} has been booked without payment. Please track the expected payment.`,
+          message: `A ${slotDisplayLabel} food slot on ${format(date, 'yyyy-MM-dd')} at ${homeName} has been booked without payment. Please track the expected payment.`,
         }));
         await supabase.from('notifications').insert(notifications);
       }
@@ -367,7 +370,7 @@ export function FoodSlotDetailPanel({
               homeId={homeId}
               trustId={trustId}
               homeName={homeName}
-              slotLabel={slotLabels[timeSlot].label}
+              slotLabel={slotDisplayLabel}
               donorId={user?.id}
               onFinished={() => onOpenChange(false)}
               onRazorpayPay={onRazorpayFoodPayment}
@@ -464,7 +467,7 @@ export function FoodSlotDetailPanel({
             <DialogHeader className="text-center sm:text-center space-y-2 pb-5 border-b border-[#e6e6e6]">
               <DialogTitle className="donor-section-title text-xl flex items-center justify-center gap-2">
                 <span style={{ color: '#ff6633' }}>{slotLabels[timeSlot].icon}</span>
-                {slotLabels[timeSlot].label}
+                {slotDisplayLabel}
               </DialogTitle>
               <DialogDescription asChild>
                 <div className="space-y-2 text-sm" style={{ color: '#666' }}>
@@ -498,7 +501,7 @@ export function FoodSlotDetailPanel({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {slotLabels[timeSlot].icon}
-            {slotLabels[timeSlot].label} Slot
+            {slotDisplayLabel} Slot
           </SheetTitle>
           <SheetDescription>
             {format(date, 'EEEE, MMMM d, yyyy')} • {homeName}

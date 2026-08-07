@@ -12,6 +12,7 @@ import {
   rejectBookingRequest,
   listFoodSlotBookingRequests,
   confirmFoodSlotBooking,
+  markFoodSlotChequePaid,
 } from '../services/foodSlotBookingRequest.service.js';
 import { authorize } from '../middleware/auth.js';
 import { assertWardenCanAccessHome, getWardenAssignedHomeIds } from '../middleware/wardenScope.js';
@@ -51,6 +52,10 @@ router.post('/create-razorpay-order', authenticate, asyncHandler(async (req: Aut
     donation_for,
     event_date,
     donor_board_name,
+    meal_type,
+    reason,
+    sponsor_for,
+    donate_on_behalf_of,
   } = req.body;
 
   const dbUser = await User.findById(req.userId).select('name email phone').lean();
@@ -75,6 +80,10 @@ router.post('/create-razorpay-order', authenticate, asyncHandler(async (req: Aut
     donation_for,
     event_date,
     donor_board_name,
+    meal_type,
+    reason,
+    sponsor_for,
+    donate_on_behalf_of,
   });
 
   res.json({
@@ -377,6 +386,10 @@ router.post('/manual/complete-food-slot', authenticate, asyncHandler(async (req:
     donation_for: donationFor,
     event_date: eventDate,
     donor_board_name: donorBoardName,
+    meal_type,
+    reason,
+    sponsor_for,
+    donate_on_behalf_of,
   } = req.body;
   if (req.user?.role === 'warden') {
     await assertWardenCanAccessHome(req, homeId);
@@ -394,6 +407,10 @@ router.post('/manual/complete-food-slot', authenticate, asyncHandler(async (req:
     donation_for: donationFor,
     event_date: eventDate,
     donor_board_name: donorBoardName,
+    meal_type,
+    reason,
+    sponsor_for,
+    donate_on_behalf_of,
   });
   res.json(result);
 }));
@@ -587,6 +604,124 @@ router.post('/donor/receipts/:id/email', authenticate, asyncHandler(async (req: 
 }));
 
 router.post(
+  '/food-slots/:id/send-payment-reminder',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('home_id').lean();
+    if (!slot) return res.status(404).json({ error: 'Not found' });
+    if (req.user?.role === 'warden') await assertWardenCanAccessHome(req, slot.home_id);
+
+    const { sendFoodSlotPaymentReminder } = await import('../services/foodPaymentReminder.service.js');
+    const result = await sendFoodSlotPaymentReminder(req.params.id, {
+      force: req.body?.force === true,
+    });
+    res.json(result);
+  }),
+);
+
+router.get(
+  '/food-slots/payment-reminder-eligible',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const homeId = String(req.query.homeId || req.query.home_id || '');
+    if (!homeId) throw new AppError('homeId is required', 400);
+    if (req.user?.role === 'warden') await assertWardenCanAccessHome(req, homeId);
+
+    const { listFoodSlotPaymentReminderEligible } = await import('../services/foodPaymentReminder.service.js');
+    const items = await listFoodSlotPaymentReminderEligible(homeId);
+    res.json({ items, count: items.length });
+  }),
+);
+
+router.post(
+  '/food-slots/send-booking-acknowledgement',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slotIds = Array.isArray(req.body?.slot_ids) ? req.body.slot_ids.map(String) : [];
+    if (!slotIds.length) throw new AppError('slot_ids is required', 400);
+
+    if (req.user?.role === 'warden') {
+      const slots = await FoodSlot.find({ _id: { $in: slotIds } }).select('home_id').lean();
+      for (const slot of slots) {
+        await assertWardenCanAccessHome(req, slot.home_id);
+      }
+    }
+
+    const { sendFoodSponsorshipAcknowledgement } = await import('../services/foodSponsorshipAcknowledgement.service.js');
+    const result = await sendFoodSponsorshipAcknowledgement(slotIds);
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/notify-admin-booking-staff',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slotIds = Array.isArray(req.body?.slot_ids) ? req.body.slot_ids.map(String) : [];
+    if (!slotIds.length) throw new AppError('slot_ids is required', 400);
+
+    const { notifySocialWorkersOfAdminFoodBooking } = await import('../services/foodAdminBookingStaffNotify.service.js');
+    const result = await notifySocialWorkersOfAdminFoodBooking(slotIds, req.userId!);
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/send-receipt-thankyou',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slotIds = Array.isArray(req.body?.slot_ids) ? req.body.slot_ids.map(String) : [];
+    if (!slotIds.length) throw new AppError('slot_ids is required', 400);
+
+    if (req.user?.role === 'warden') {
+      const slots = await FoodSlot.find({ _id: { $in: slotIds } }).select('home_id').lean();
+      for (const slot of slots) {
+        await assertWardenCanAccessHome(req, slot.home_id);
+      }
+    }
+
+    const { deliverFoodReceiptThankYouBatch } = await import('../services/foodReceiptThankYou.service.js');
+    const result = await deliverFoodReceiptThankYouBatch(slotIds, {
+      force: req.body?.force === true,
+    });
+    res.json(result);
+  }),
+);
+
+router.get(
+  '/food-slots/:id/receipt-thankyou-documents',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('home_id').lean();
+    if (!slot) throw new AppError('Not found', 404);
+    if (req.user?.role === 'warden') await assertWardenCanAccessHome(req, slot.home_id);
+
+    const { getFoodReceiptThankYouDocuments } = await import('../services/foodReceiptThankYou.service.js');
+    const result = await getFoodReceiptThankYouDocuments(req.params.id);
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/mark-cheque-paid',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('home_id').lean();
+    if (!slot) return res.status(404).json({ error: 'Not found' });
+    if (req.user?.role === 'warden') await assertWardenCanAccessHome(req, slot.home_id);
+    const result = await markFoodSlotChequePaid(req.params.id);
+    res.json(result);
+  }),
+);
+
+router.post(
   '/food-slots/:id/confirm-booking',
   authenticate,
   authorize('warden', 'admin', 'super_admin'),
@@ -693,14 +828,122 @@ router.post(
 router.post(
   '/food-slots/:id/share-photos',
   authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('home_id trust_id').lean();
+    if (!slot) throw new AppError('Not found', 404);
+    const { customMessage } = req.body as { customMessage?: string };
+    const { sendFoodEventMediaToDonor } = await import('../services/foodEventMedia.service.js');
+    const result = await sendFoodEventMediaToDonor(req.params.id, { customMessage });
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/submit-event-media',
+  authenticate,
   authorize('warden', 'admin', 'super_admin'),
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const slot = await FoodSlot.findById(req.params.id).select('home_id').lean();
     if (!slot) throw new AppError('Not found', 404);
     if (req.user?.role === 'warden') await assertWardenCanAccessHome(req, slot.home_id);
-    const { shareFoodEventPhotos } = await import('../services/foodThankYou.service.js');
-    const result = await shareFoodEventPhotos(req.params.id);
+    const { photos, videos, notes } = req.body as {
+      photos?: string[];
+      videos?: string[];
+      notes?: string;
+    };
+    const { submitFoodEventMedia } = await import('../services/foodEventMedia.service.js');
+    const result = await submitFoodEventMedia(req.params.id, {
+      photos: photos || [],
+      videos: videos || [],
+      notes,
+      submittedByUserId: req.user!.id,
+      submittedByName: req.user!.name,
+    });
     res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/approve-event-media',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('trust_id').lean();
+    if (!slot) throw new AppError('Not found', 404);
+    if (req.user?.role === 'admin' && req.user.trust_id && slot.trust_id !== req.user.trust_id) {
+      throw new AppError('Forbidden', 403);
+    }
+    const { approveFoodEventMedia } = await import('../services/foodEventMedia.service.js');
+    const result = await approveFoodEventMedia(req.params.id, req.user!.id);
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/reject-event-media',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('trust_id').lean();
+    if (!slot) throw new AppError('Not found', 404);
+    if (req.user?.role === 'admin' && req.user.trust_id && slot.trust_id !== req.user.trust_id) {
+      throw new AppError('Forbidden', 403);
+    }
+    const { notes } = req.body as { notes?: string };
+    const { rejectFoodEventMedia } = await import('../services/foodEventMedia.service.js');
+    const result = await rejectFoodEventMedia(req.params.id, {
+      rejectedByUserId: req.user!.id,
+      notes,
+    });
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/send-event-media',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const slot = await FoodSlot.findById(req.params.id).select('trust_id').lean();
+    if (!slot) throw new AppError('Not found', 404);
+    if (req.user?.role === 'admin' && req.user.trust_id && slot.trust_id !== req.user.trust_id) {
+      throw new AppError('Forbidden', 403);
+    }
+    const { customMessage } = req.body as { customMessage?: string };
+    const { sendFoodEventMediaToDonor } = await import('../services/foodEventMedia.service.js');
+    const result = await sendFoodEventMediaToDonor(req.params.id, { customMessage });
+    res.json(result);
+  }),
+);
+
+router.get(
+  '/food-slots/approved-event-media-awaiting-send',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const trustId =
+      req.user?.role === 'admin' && req.user.trust_id
+        ? String(req.user.trust_id)
+        : (req.query.trustId as string | undefined);
+    const { listApprovedFoodEventMediaAwaitingSend } = await import('../services/foodEventMedia.service.js');
+    const items = await listApprovedFoodEventMediaAwaitingSend(trustId);
+    res.json({ items, count: items.length });
+  }),
+);
+
+router.get(
+  '/food-slots/pending-event-media',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const trustId =
+      req.user?.role === 'admin' && req.user.trust_id
+        ? String(req.user.trust_id)
+        : (req.query.trustId as string | undefined);
+    const { listPendingFoodEventMedia } = await import('../services/foodEventMedia.service.js');
+    const items = await listPendingFoodEventMedia(trustId);
+    res.json({ items, count: items.length });
   }),
 );
 

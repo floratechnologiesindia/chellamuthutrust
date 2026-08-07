@@ -13,6 +13,7 @@
     "migrate-project-assignments": "tsx src/scripts/migrate-project-assignments.ts",
     "migrate-food-recurring-day-of-month": "tsx src/scripts/migrate-food-recurring-day-of-month.ts",
     "migrate-food-payment-status": "tsx src/scripts/migrate-food-payment-status.ts",
+    "test:food-flows": "tsx src/scripts/test-food-flows.ts",
     "verify-project-assignments": "tsx src/scripts/verify-project-assignments.ts",
     "clear-placeholder-emails": "tsx src/scripts/clear-placeholder-emails.ts"
   },

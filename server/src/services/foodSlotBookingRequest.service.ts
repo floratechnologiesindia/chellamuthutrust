@@ -155,6 +155,20 @@ export async function confirmFoodSlotBooking(
 
   if (slot.donor_id) {
     await notifyDonorBookingConfirmed(slot.donor_id, slot);
+    try {
+      const { sendFoodSponsorshipAcknowledgement } = await import('./foodSponsorshipAcknowledgement.service.js');
+      await sendFoodSponsorshipAcknowledgement([slot._id]);
+    } catch (err) {
+      console.error('[confirmFoodSlotBooking] acknowledgement failed:', err);
+    }
+    if (payment.payment_status === 'FULLY_PAID') {
+      try {
+        const { deliverFoodReceiptThankYou } = await import('./foodReceiptThankYou.service.js');
+        await deliverFoodReceiptThankYou(slot._id);
+      } catch (err) {
+        console.error('[confirmFoodSlotBooking] receipt/thank-you failed:', err);
+      }
+    }
   }
 
   return toApiDoc(slot);
@@ -251,4 +265,37 @@ export async function rejectBookingRequest(requestId: string, reason?: string) {
   });
 
   return toApiDoc(request);
+}
+
+/** Admin marks a pending cheque payment as realized. */
+export async function markFoodSlotChequePaid(slotId: string) {
+  const slot = await FoodSlot.findById(slotId);
+  if (!slot) throw new AppError('Food slot not found', 404);
+
+  if (String(slot.payment_mode ?? '').toLowerCase() !== 'cheque') {
+    throw new AppError('This booking is not a cheque payment', 400);
+  }
+
+  const status = String(slot.payment_status ?? '').toUpperCase();
+  if (status === 'FULLY_PAID' || status === 'PAID') {
+    return toApiDoc(slot);
+  }
+
+  slot.payment_status = 'FULLY_PAID';
+  slot.amount_paid = slot.amount ?? 0;
+  slot.cheque_status = 'REALIZED';
+  await slot.save();
+  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id);
+
+  if (slot.donor_id) {
+    await notifyDonorBookingConfirmed(slot.donor_id, slot);
+    try {
+      const { deliverFoodReceiptThankYou } = await import('./foodReceiptThankYou.service.js');
+      await deliverFoodReceiptThankYou(slot._id);
+    } catch (err) {
+      console.error('[markFoodSlotChequePaid] receipt/thank-you failed:', err);
+    }
+  }
+
+  return toApiDoc(slot);
 }

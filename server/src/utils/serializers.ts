@@ -2,6 +2,7 @@ export function toApiDoc<T = any>(doc: T | null): Record<string, unknown> | null
   if (!doc) return null;
   const obj = typeof (doc as any).toObject === 'function' ? (doc as any).toObject({ virtuals: true }) : { ...(doc as any) };
   const { _id, __v, passwordHash, resetToken, resetTokenExpiry, ...rest } = obj as Record<string, unknown>;
+  if (rest.notes && !rest.note) rest.note = rest.notes;
   return { id: String(_id), ...rest };
 }
 

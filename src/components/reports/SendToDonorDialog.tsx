@@ -19,6 +19,7 @@ import { Send, Camera, UtensilsCrossed, Package, Heart, CheckCircle2, MessageCir
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { foodSlotLegacySendBlockReason } from '@/lib/foodEventMediaUtils';
 import { generateThanksLetterHtml } from '@/lib/generateThanksLetterHtml';
 import { generateReceiptHtml } from '@/lib/generateReceiptHtml';
 import { generateThanksLetterText } from '@/lib/generateThanksLetterText';
@@ -36,6 +37,7 @@ export interface SelectedWorkItem {
   value?: number;
   photos: string[];
   reportSentAt?: string | null;
+  legacySendBlocked?: boolean;
 }
 
 interface SendToDonorDialogProps {
@@ -209,6 +211,12 @@ export function SendToDonorDialog({
   const handleSend = async () => {
     if (donorGroups.length === 0) {
       toast.error('No donors found in selected items.');
+      return;
+    }
+
+    const blockedFood = selectedItems.filter((i) => i.type === 'food_slot' && i.legacySendBlocked);
+    if (blockedFood.length > 0) {
+      toast.error(foodSlotLegacySendBlockReason());
       return;
     }
 
@@ -412,6 +420,7 @@ export function SendToDonorDialog({
         };
         const grouped = new Map<string, string[]>();
         for (const item of selectedItems) {
+          if (item.type === 'food_slot') continue;
           const table = tableMap[item.type];
           if (!grouped.has(table)) grouped.set(table, []);
           grouped.get(table)!.push(item.id);

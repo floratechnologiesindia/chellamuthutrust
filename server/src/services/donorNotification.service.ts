@@ -1,4 +1,3 @@
-import { issueFoodSlotReceipt } from './receipt.service.js';
 import { sendReceiptEmailIfEligible } from './receiptEmail.service.js';
 import { Receipt } from '../models/Operations.js';
 import type { IReceipt } from '../models/Operations.js';
@@ -17,6 +16,8 @@ export const DONOR_NOTIFICATION_TYPES = {
   PAY_LATER_RECEIVED: 'pay_later_received',
   BOOKING_CONFIRMED: 'booking_confirmed',
   BOOKING_DECLINED: 'booking_declined',
+  FOOD_SPONSORSHIP_ACKNOWLEDGEMENT: 'food_sponsorship_acknowledgement',
+  FOOD_PAYMENT_REMINDER: 'food_payment_reminder',
   NEED_SPONSORED: 'need_sponsored',
   NEED_FULFILLED: 'need_fulfilled',
   NEW_NEED_POSTED: 'new_need_posted',
@@ -40,6 +41,7 @@ const TIME_SLOT_LABELS: Record<string, string> = {
   AFTERNOON: 'Lunch',
   EVENING: 'Dinner',
   REFRESHMENTS: 'Refreshments',
+  OUTSIDE_FOOD: 'Outside Food',
 };
 
 const MILESTONE_THRESHOLDS = [1, 5, 10, 25, 50, 100];
@@ -48,8 +50,12 @@ export function formatInr(amount: number): string {
   return `₹${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
-export function timeSlotLabel(timeSlot: string): string {
-  return TIME_SLOT_LABELS[timeSlot] || timeSlot;
+export function timeSlotLabel(timeSlot: string, mealType?: string | null): string {
+  const base = TIME_SLOT_LABELS[timeSlot] || timeSlot;
+  if (timeSlot === 'OUTSIDE_FOOD' && mealType?.trim()) {
+    return `${base} (${mealType.trim()})`;
+  }
+  return base;
 }
 
 async function getHomeName(homeId: string): Promise<string> {
@@ -123,7 +129,7 @@ export async function notifyDonorFoodSlotPaymentSuccess(
   amountPaid: number,
 ) {
   const homeName = await getHomeName(slot.home_id);
-  const label = timeSlotLabel(slot.time_slot);
+  const label = timeSlotLabel(slot.time_slot, slot.meal_type);
   await notifyDonor({
     userId: donorId,
     type: DONOR_NOTIFICATION_TYPES.PAYMENT_SUCCESSFUL,
@@ -141,15 +147,12 @@ export async function notifyDonorFoodSlotPaymentSuccess(
       await notifyDonorBalanceDue(donorId, slot, balance);
     }
   } else {
-    const issued = await issueFoodSlotReceipt({
-      donorId,
-      slot,
-      amountPaid,
-    });
-    await deliverReceiptNotification(donorId, issued?.referenceKey || `food-${slot._id}`, {
-      description: `${label} sponsorship · ${homeName} · ${slot.date}`,
-      amount: amountPaid,
-    });
+    const { deliverFoodReceiptThankYou } = await import('./foodReceiptThankYou.service.js');
+    try {
+      await deliverFoodReceiptThankYou(slot._id);
+    } catch (err) {
+      console.error('[food-payment-success] receipt/thank-you failed:', err);
+    }
   }
 
   await checkAndNotifyMilestones(donorId);
@@ -157,7 +160,7 @@ export async function notifyDonorFoodSlotPaymentSuccess(
 
 export async function notifyDonorBalanceDue(donorId: string, slot: IFoodSlot, balance: number) {
   const homeName = await getHomeName(slot.home_id);
-  const label = timeSlotLabel(slot.time_slot);
+  const label = timeSlotLabel(slot.time_slot, slot.meal_type);
   await notifyDonor({
     userId: donorId,
     type: DONOR_NOTIFICATION_TYPES.BALANCE_DUE,
@@ -184,7 +187,7 @@ export async function notifyDonorPayLaterReceived(
 
 export async function notifyDonorBookingConfirmed(donorId: string, slot: IFoodSlot) {
   const homeName = await getHomeName(slot.home_id);
-  const label = timeSlotLabel(slot.time_slot);
+  const label = timeSlotLabel(slot.time_slot, slot.meal_type);
   const status = String(slot.payment_status ?? 'FULLY_PENDING').toUpperCase();
   const statusLabel =
     status === 'FULLY_PAID' ? 'Paid' :
@@ -379,7 +382,7 @@ export async function notifyDonorCalendarReminder(
   daysUntil: number,
 ) {
   const homeName = await getHomeName(slot.home_id);
-  const label = timeSlotLabel(slot.time_slot);
+  const label = timeSlotLabel(slot.time_slot, slot.meal_type);
   await notifyDonor({
     userId: donorId,
     type: DONOR_NOTIFICATION_TYPES.CALENDAR_REMINDER,

@@ -34,7 +34,7 @@ export function resolvePeriodRange(
   return { start: startOfMonthIso(today), end: endOfMonthIso(today) };
 }
 
-const MEAL_KEYS = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS', 'OUTSIDE_FOOD'] as const;
+const MEAL_KEYS = ['MORNING', 'REFRESHMENTS', 'AFTERNOON', 'EVENING', 'OUTSIDE_FOOD'] as const;
 
 export async function getWardenDashboardStats(homeId: string, start: string, end: string) {
   const dateFilter = { $gte: start, $lte: end };

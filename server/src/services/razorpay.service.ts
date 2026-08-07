@@ -30,6 +30,10 @@ export interface RazorpayOrderNotes {
   event_date?: string;
   donor_board_name?: string;
   purpose?: 'donation' | 'food_slot';
+  meal_type?: string;
+  reason?: string;
+  sponsor_for?: string;
+  donate_on_behalf_of?: string;
 }
 
 function noteValue(notes: Record<string, unknown> | undefined, key: string): string {
@@ -90,6 +94,10 @@ export async function createRazorpayOrder(
         donation_for: (notes.donation_for || '').slice(0, 100),
         event_date: notes.event_date || '',
         donor_board_name: (notes.donor_board_name || '').slice(0, 100),
+        meal_type: (notes.meal_type || '').slice(0, 40),
+        reason: (notes.reason || '').slice(0, 250),
+        sponsor_for: (notes.sponsor_for || '').slice(0, 100),
+        donate_on_behalf_of: (notes.donate_on_behalf_of || '').slice(0, 100),
       },
     }),
   });
@@ -156,6 +164,10 @@ export async function fulfillRazorpayCapturedPayment(params: {
   const donationFor = noteValue(notes, 'donation_for') || undefined;
   const eventDate = noteValue(notes, 'event_date') || undefined;
   const donorBoardName = noteValue(notes, 'donor_board_name') || undefined;
+  const mealType = noteValue(notes, 'meal_type') || undefined;
+  const reason = noteValue(notes, 'reason') || undefined;
+  const sponsorFor = noteValue(notes, 'sponsor_for') || undefined;
+  const donateOnBehalfOf = noteValue(notes, 'donate_on_behalf_of') || undefined;
   const amountRupees = amountPaise / 100;
   const payDate = new Date().toISOString().split('T')[0];
 
@@ -229,6 +241,10 @@ export async function fulfillRazorpayCapturedPayment(params: {
       donation_for: donationFor,
       event_date: eventDate,
       donor_board_name: donorBoardName,
+      meal_type: mealType,
+      reason,
+      sponsor_for: sponsorFor,
+      donate_on_behalf_of: donateOnBehalfOf,
     });
     return {
       payment_id: paymentId,
@@ -264,6 +280,10 @@ export async function verifyRazorpayPayment(
     donation_for?: string;
     event_date?: string;
     donor_board_name?: string;
+    meal_type?: string;
+    reason?: string;
+    sponsor_for?: string;
+    donate_on_behalf_of?: string;
   },
   donorId?: string,
 ) {
@@ -292,6 +312,10 @@ export async function verifyRazorpayPayment(
       donation_for: data.donation_for || '',
       event_date: data.event_date || '',
       donor_board_name: data.donor_board_name || '',
+      meal_type: data.meal_type || '',
+      reason: data.reason || '',
+      sponsor_for: data.sponsor_for || '',
+      donate_on_behalf_of: data.donate_on_behalf_of || '',
     },
     donorIdFallback: donorId,
   });

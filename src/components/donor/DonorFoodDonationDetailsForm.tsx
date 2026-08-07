@@ -6,6 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
+import {
+  OUTSIDE_MEAL_TYPES,
+  type OutsideMealType,
+} from '@/lib/foodSlotConstants';
 
 export type FoodDonationOccasion =
   | 'birthday'
@@ -32,6 +37,7 @@ export interface FoodDonationDetails {
   donation_for: string;
   event_date: string;
   recurring_frequency: FoodRecurringFrequency;
+  outside_meal_type?: OutsideMealType;
 }
 
 interface DonorFoodDonationDetailsFormProps {
@@ -40,15 +46,17 @@ interface DonorFoodDonationDetailsFormProps {
   isSubmitting?: boolean;
   /** Existing logged-in donor — profile fields are prefilled and phone is read-only when set. */
   isExistingDonor?: boolean;
+  /** When booking an Outside Food slot, meal type is required. */
+  timeSlot?: FoodTimeSlot;
   className?: string;
 }
 
 export const OCCASION_LABELS: Record<FoodDonationOccasion, string> = {
   birthday: 'Birthday',
-  ancestor_remembrance: 'In Memory of Loved One',
+  ancestor_remembrance: 'Memorial Day',
   festival: 'Festival / Celebration',
-  special_day: 'Special Day',
-  other: 'Other',
+  special_day: 'Special Occasion',
+  other: 'Others',
 };
 
 const todayIso = () => format(new Date(), 'yyyy-MM-dd');
@@ -58,6 +66,7 @@ export const DonorFoodDonationDetailsForm = ({
   onSubmit,
   isSubmitting = false,
   isExistingDonor = false,
+  timeSlot,
   className,
 }: DonorFoodDonationDetailsFormProps) => {
   const [name, setName] = useState(initialValues?.name || '');
@@ -73,7 +82,12 @@ export const DonorFoodDonationDetailsForm = ({
   const [recurringFrequency, setRecurringFrequency] = useState<FoodRecurringFrequency>(
     initialValues?.recurring_frequency || 'one_time',
   );
+  const [outsideMealType, setOutsideMealType] = useState<OutsideMealType>(
+    initialValues?.outside_meal_type || 'Breakfast',
+  );
   const [error, setError] = useState('');
+
+  const isOutsideFood = timeSlot === 'OUTSIDE_FOOD';
 
   useEffect(() => {
     if (initialValues?.name) setName(initialValues.name);
@@ -124,6 +138,10 @@ export const DonorFoodDonationDetailsForm = ({
       setError('Date of Event is required');
       return;
     }
+    if (isOutsideFood && !outsideMealType) {
+      setError('Please select the outside food meal type');
+      return;
+    }
 
     setError('');
     await onSubmit({
@@ -136,6 +154,7 @@ export const DonorFoodDonationDetailsForm = ({
       donation_for: donationFor.trim(),
       event_date: eventDate,
       recurring_frequency: recurringFrequency,
+      outside_meal_type: isOutsideFood ? outsideMealType : undefined,
     });
   };
 
@@ -240,6 +259,32 @@ export const DonorFoodDonationDetailsForm = ({
           </p>
         )}
       </div>
+
+      {isOutsideFood && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium" style={{ color: '#333' }}>
+            Outside Food — Meal Type *
+          </Label>
+          <Select
+            value={outsideMealType}
+            onValueChange={(v) => setOutsideMealType(v as OutsideMealType)}
+          >
+            <SelectTrigger className="donor-input h-11">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="donor-select-menu portal-donor">
+              {OUTSIDE_MEAL_TYPES.map((meal) => (
+                <SelectItem key={meal} value={meal}>
+                  {meal}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs" style={{ color: '#666' }}>
+            You will bring and serve this meal at the project.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label className="text-sm font-medium" style={{ color: '#333' }}>

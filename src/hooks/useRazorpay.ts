@@ -25,6 +25,10 @@ export interface FoodSlotPaymentContext {
   donation_for?: string;
   event_date?: string;
   donor_board_name?: string;
+  meal_type?: string;
+  reason?: string;
+  sponsor_for?: string;
+  donate_on_behalf_of?: string;
 }
 
 interface PaymentParams {
@@ -102,6 +106,10 @@ export function useRazorpay() {
             donation_for: foodSlot?.donation_for,
             event_date: foodSlot?.event_date,
             donor_board_name: foodSlot?.donor_board_name,
+            meal_type: foodSlot?.meal_type,
+            reason: foodSlot?.reason,
+            sponsor_for: foodSlot?.sponsor_for,
+            donate_on_behalf_of: foodSlot?.donate_on_behalf_of,
           },
         },
       );
@@ -163,6 +171,10 @@ export function useRazorpay() {
                   donation_for: foodSlot?.donation_for,
                   event_date: foodSlot?.event_date,
                   donor_board_name: foodSlot?.donor_board_name,
+                  meal_type: foodSlot?.meal_type,
+                  reason: foodSlot?.reason,
+                  sponsor_for: foodSlot?.sponsor_for,
+                  donate_on_behalf_of: foodSlot?.donate_on_behalf_of,
                 },
               },
             );

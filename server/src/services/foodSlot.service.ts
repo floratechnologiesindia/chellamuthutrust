@@ -109,6 +109,35 @@ export async function applyDonorFoodSlotPayment(
   return slot;
 }
 
+/** Apply donor booking metadata (occasion, purpose, outside meal type). */
+export function applyDonorFoodBookingMetadata(
+  slot: IFoodSlot,
+  params: {
+    timeSlot: string;
+    occasionType?: string;
+    occasionNote?: string;
+    donationFor?: string;
+    eventDate?: string;
+    mealType?: string;
+    reason?: string;
+    sponsorFor?: string;
+    donateOnBehalfOf?: string;
+  },
+): void {
+  if (params.occasionType) slot.occasion_type = params.occasionType;
+  if (params.occasionNote) slot.occasion_note = params.occasionNote;
+  if (params.donationFor) slot.donate_on_behalf_of = params.donationFor;
+  if (params.donateOnBehalfOf) slot.donate_on_behalf_of = params.donateOnBehalfOf;
+  if (params.sponsorFor) slot.sponsor_for = params.sponsorFor;
+  if (params.reason?.trim()) slot.reason = params.reason.trim();
+  if (params.timeSlot === 'OUTSIDE_FOOD') {
+    if (!params.mealType?.trim()) {
+      throw new AppError('Meal type is required for Outside Food sponsorship', 400);
+    }
+    slot.meal_type = params.mealType.trim();
+  }
+}
+
 /** Atomically book a slot on successful payment — slot must still be open. */
 export async function bookSlotOnPayment(params: {
   donorId: string;
@@ -120,8 +149,30 @@ export async function bookSlotOnPayment(params: {
   foodSlotId?: string;
   occasionType?: string;
   occasionNote?: string;
+  donationFor?: string;
+  eventDate?: string;
+  mealType?: string;
+  reason?: string;
+  sponsorFor?: string;
+  donateOnBehalfOf?: string;
 }): Promise<IFoodSlot> {
-  const { donorId, homeId, trustId, date, timeSlot, amount, foodSlotId, occasionType, occasionNote } = params;
+  const {
+    donorId,
+    homeId,
+    trustId,
+    date,
+    timeSlot,
+    amount,
+    foodSlotId,
+    occasionType,
+    occasionNote,
+    donationFor,
+    eventDate,
+    mealType,
+    reason,
+    sponsorFor,
+    donateOnBehalfOf,
+  } = params;
 
   const siblings = await FoodSlot.find({ home_id: homeId, date, time_slot: timeSlot });
   const bookedByOther = siblings.find((s) => slotIsBooked(s) && s.donor_id && s.donor_id !== donorId);
@@ -157,27 +208,55 @@ export async function bookSlotOnPayment(params: {
   slot.payment_status = 'FULLY_PAID';
   slot.amount_paid = amount;
   slot.payment_mode = 'online';
-  if (occasionType) slot.occasion_type = occasionType;
-  if (occasionNote) slot.occasion_note = occasionNote;
+  applyDonorFoodBookingMetadata(slot, {
+    timeSlot,
+    occasionType,
+    occasionNote,
+    donationFor,
+    eventDate,
+    mealType,
+    reason,
+    sponsorFor,
+    donateOnBehalfOf,
+  });
   await slot.save();
   await dedupeFoodSlotCell(homeId, date, timeSlot, slot._id);
+
+  try {
+    const { sendFoodSponsorshipAcknowledgement } = await import('./foodSponsorshipAcknowledgement.service.js');
+    await sendFoodSponsorshipAcknowledgement([slot._id]);
+  } catch (err) {
+    console.error('[bookSlotOnPayment] acknowledgement failed:', err);
+  }
 
   return slot;
 }
 
+function normalizeFoodSlotBody(body: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...body };
+  if (normalized.note === undefined && normalized.notes !== undefined) {
+    normalized.note = normalized.notes;
+  }
+  if (normalized.notes === undefined && normalized.note !== undefined) {
+    normalized.notes = normalized.note;
+  }
+  return normalized;
+}
+
 /** Book or update the single canonical slot for a calendar cell (staff flows). */
 export async function bookOrUpdateFoodSlot(body: Record<string, unknown>): Promise<IFoodSlot> {
-  const homeId = String(body.home_id ?? '');
-  const date = String(body.date ?? '');
-  const timeSlot = String(body.time_slot ?? '');
+  const payload = normalizeFoodSlotBody(body);
+  const homeId = String(payload.home_id ?? '');
+  const date = String(payload.date ?? '');
+  const timeSlot = String(payload.time_slot ?? '');
 
   if (!homeId || !date || !timeSlot) {
-    return FoodSlot.create(body) as Promise<IFoodSlot>;
+    return FoodSlot.create(payload) as Promise<IFoodSlot>;
   }
 
   const siblings = await FoodSlot.find({ home_id: homeId, date, time_slot: timeSlot });
   const bookedByOther = siblings.find(
-    (s) => slotIsBooked(s) && s.donor_id && body.donor_id && s.donor_id !== body.donor_id,
+    (s) => slotIsBooked(s) && s.donor_id && payload.donor_id && s.donor_id !== payload.donor_id,
   );
   if (bookedByOther) {
     throw new AppError('This slot is already booked by another donor', 409);
@@ -185,13 +264,13 @@ export async function bookOrUpdateFoodSlot(body: Record<string, unknown>): Promi
 
   const canonical = pickCanonicalFoodSlot(siblings);
   if (canonical) {
-    Object.assign(canonical, body);
+    Object.assign(canonical, payload);
     await canonical.save();
     await dedupeFoodSlotCell(homeId, date, timeSlot, canonical._id);
     return canonical;
   }
 
-  const created = await FoodSlot.create(body);
+  const created = await FoodSlot.create(payload);
   return created;
 }
 

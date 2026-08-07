@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { pickFoodSlotForTimeSlot, normalizeFoodSlotStatus } from '@/lib/foodSlotUtils';
+import { FOOD_TIME_SLOTS } from '@/lib/foodSlotConstants';
 import { FoodSlotBadge } from './FoodSlotBadge';
 import { FoodSlot, FoodTimeSlot, FoodSlotStatus, FoodSlotWithDonor } from '@/hooks/useFoodSlots';
 
@@ -13,7 +14,7 @@ interface FoodSlotCellProps {
   compact?: boolean;
 }
 
-const timeSlots: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS', 'OUTSIDE_FOOD'];
+const timeSlots = FOOD_TIME_SLOTS;
 
 export function FoodSlotCell({
   date,

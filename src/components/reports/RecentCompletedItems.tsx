@@ -12,6 +12,10 @@ import {
   Send
 } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  isFoodSlotLegacySendBlocked,
+  foodSlotLegacySendBlockReason,
+} from '@/lib/foodEventMediaUtils';
 import type { 
   CompletedFoodSlot, 
   ReceivedKindDonation, 
@@ -44,6 +48,10 @@ export type CompletedItemData = {
   donorName?: string;
   photos?: string[];
   reportSentAt?: string | null;
+  eventMediaStatus?: string | null;
+  photosSharedAt?: string | null;
+  completionVideos?: string[];
+  legacySendBlocked?: boolean;
 };
 
 export function RecentCompletedItems({
@@ -60,7 +68,14 @@ export function RecentCompletedItems({
 
   // Combine and sort all items by date
   const allItems: CompletedItemData[] = [
-    ...foodSlots.map(slot => ({
+    ...foodSlots.map(slot => {
+      const legacySendBlocked = isFoodSlotLegacySendBlocked({
+        type: 'food_slot',
+        completion_photos: slot.completion_photos,
+        completion_videos: slot.completion_videos,
+        event_media_status: slot.event_media_status,
+      });
+      return {
       id: slot.id,
       type: 'food_slot' as const,
       title: `${slot.time_slot} Food`,
@@ -74,7 +89,12 @@ export function RecentCompletedItems({
       donorName: slot.donor_name || 'Anonymous',
       photos: slot.completion_photos || [],
       reportSentAt: slot.report_sent_at,
-    })),
+      eventMediaStatus: slot.event_media_status,
+      photosSharedAt: slot.photos_shared_at,
+      completionVideos: slot.completion_videos || [],
+      legacySendBlocked,
+    };
+    }),
     ...kindDonations.map(donation => ({
       id: donation.id,
       type: 'kind_donation' as const,
@@ -203,20 +223,31 @@ export function RecentCompletedItems({
         <div className="space-y-3">
           {allItems.slice(0, 10).map((item) => {
             const isSelected = selectedItemIds?.has(item.id) || false;
+            const blocked = item.legacySendBlocked;
             return (
               <div
                 key={`${item.type}-${item.id}`}
-                className={`flex items-start gap-3 p-3 rounded-lg transition-colors cursor-pointer ${
-                  isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-muted/50 hover:bg-muted'
+                className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                  blocked
+                    ? 'bg-muted/30 opacity-80 cursor-not-allowed'
+                    : isSelected
+                      ? 'bg-primary/10 ring-1 ring-primary/30 cursor-pointer'
+                      : 'bg-muted/50 hover:bg-muted cursor-pointer'
                 }`}
-                onClick={() => selectable && onToggleItem?.(item.id, item)}
+                onClick={() => {
+                  if (!selectable || blocked) return;
+                  onToggleItem?.(item.id, item);
+                }}
               >
                 {selectable && (
                   <Checkbox
                     checked={isSelected}
+                    disabled={blocked}
                     className="mt-1 shrink-0"
                     onClick={(e) => e.stopPropagation()}
-                    onCheckedChange={() => onToggleItem?.(item.id, item)}
+                    onCheckedChange={() => {
+                      if (!blocked) onToggleItem?.(item.id, item);
+                    }}
                   />
                 )}
                 <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center shrink-0">
@@ -238,7 +269,15 @@ export function RecentCompletedItems({
                         Sent {format(new Date(item.reportSentAt), 'MMM d')}
                       </Badge>
                     )}
+                    {blocked && (
+                      <Badge variant="outline" className="text-orange-700 border-orange-200 bg-orange-50 text-[10px] px-1.5 py-0">
+                        Use Event Media panel
+                      </Badge>
+                    )}
                   </div>
+                  {blocked && (
+                    <p className="text-xs text-orange-700 mt-1">{foodSlotLegacySendBlockReason()}</p>
+                  )}
                   <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
                     <span className="truncate">{item.home}</span>
                     <span>•</span>

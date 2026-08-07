@@ -26,14 +26,13 @@ import {
 } from '@/hooks/useFoodSlots';
 import { useFoodSlotPricingMap } from '@/hooks/useFoodSlotPricing';
 import { useDonors } from '@/hooks/useDonors';
+import { FOOD_TIME_SLOT_LABELS } from '@/lib/foodSlotConstants';
+import { normalizePaymentStatus } from '@/lib/foodSlotUtils';
+import { useMarkChequePaid } from '@/hooks/useWardenOps';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
+import { toast } from 'sonner';
 
-const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
-  MORNING: 'Breakfast',
-  AFTERNOON: 'Lunch',
-  EVENING: 'Dinner',
-  REFRESHMENTS: 'Refreshments',
-  OUTSIDE_FOOD: 'Outside Food',
-};
+const TIME_SLOT_LABELS = FOOD_TIME_SLOT_LABELS;
 
 const STATUS_OPTIONS: { value: FoodSlotStatus; label: string; color: string }[] = [
   { value: 'NEED', label: 'Available', color: 'bg-success text-success-foreground' },
@@ -77,6 +76,7 @@ export function FoodSlotEditDialog({
   const deleteSlot = useDeleteFoodSlot();
   const { priceMap } = useFoodSlotPricingMap();
   const { data: donors = [] } = useDonors();
+  const markChequePaid = useMarkChequePaid();
 
   const isLoading = createSlot.isPending || updateSlot.isPending || deleteSlot.isPending;
   const isEditing = !!existingSlot;
@@ -149,7 +149,11 @@ export function FoodSlotEditDialog({
             {isEditing ? (isBooked ? 'Booking Details' : 'Edit Food Slot') : 'Create Food Slot'}
           </DialogTitle>
           <DialogDescription>
-            {TIME_SLOT_LABELS[timeSlot]} at {homeName}
+            {TIME_SLOT_LABELS[timeSlot]}
+            {timeSlot === 'OUTSIDE_FOOD' && existingSlot?.meal_type
+              ? ` (${existingSlot.meal_type})`
+              : ''}{' '}
+            at {homeName}
           </DialogDescription>
         </DialogHeader>
 
@@ -193,7 +197,7 @@ export function FoodSlotEditDialog({
                   <div className="flex items-start gap-3">
                     <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                     <div>
-                      <Label className="text-xs text-muted-foreground">On Behalf Of</Label>
+                      <Label className="text-xs text-muted-foreground">Person Name</Label>
                       <p className="font-medium">{existingSlot.donate_on_behalf_of}</p>
                     </div>
                   </div>
@@ -213,7 +217,7 @@ export function FoodSlotEditDialog({
                 {/* Reason */}
                 {existingSlot.reason && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">Reason</Label>
+                    <Label className="text-xs text-muted-foreground">Purpose</Label>
                     <p className="text-sm mt-1">{existingSlot.reason}</p>
                   </div>
                 )}
@@ -228,6 +232,69 @@ export function FoodSlotEditDialog({
                     </div>
                   </div>
                 )}
+
+                {existingSlot.payment_mode && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Payment Mode</Label>
+                    <p className="font-medium mt-1">{existingSlot.payment_mode}</p>
+                  </div>
+                )}
+
+                {existingSlot.amount_paid != null && existingSlot.amount_paid > 0 && (
+                  <div className="flex items-center gap-2">
+                    <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Amount Received</Label>
+                      <p className="font-medium">{formatCurrency(existingSlot.amount_paid)}</p>
+                    </div>
+                  </div>
+                )}
+
+                {existingSlot.cheque_number && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Cheque Number</Label>
+                    <p className="font-medium mt-1">{existingSlot.cheque_number}</p>
+                  </div>
+                )}
+
+                {existingSlot.bank_name && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                    <p className="font-medium mt-1">{existingSlot.bank_name}</p>
+                  </div>
+                )}
+
+                {existingSlot.cheque_image_url && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Cheque Image</Label>
+                    <a
+                      href={normalizeMediaUrl(existingSlot.cheque_image_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary underline mt-1 inline-block"
+                    >
+                      View attachment
+                    </a>
+                  </div>
+                )}
+
+                {String(existingSlot.payment_mode).toLowerCase() === 'cheque' &&
+                  normalizePaymentStatus(existingSlot.payment_status, existingSlot.status) !== 'FULLY_PAID' && (
+                    <Button
+                      type="button"
+                      className="w-full"
+                      disabled={markChequePaid.isPending}
+                      onClick={() =>
+                        markChequePaid.mutate(existingSlot.id, {
+                          onSuccess: () => toast.success('Cheque marked as paid'),
+                          onError: (e) => toast.error(e.message),
+                        })
+                      }
+                    >
+                      {markChequePaid.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Mark Cheque as Paid
+                    </Button>
+                  )}
 
                 {/* Payment Status */}
                 {existingSlot.payment_status && (

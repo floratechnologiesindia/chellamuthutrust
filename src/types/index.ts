@@ -224,6 +224,7 @@ export type NotificationType =
   | 'account_security'
   | 'welcome'
   | 'food_slot_booking_request'
+  | 'admin_food_booking'
   | 'food_recurring_pledge'
   | 'food_recurring_due_soon'
   | 'food_recurring_overdue';

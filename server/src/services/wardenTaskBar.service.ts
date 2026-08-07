@@ -3,6 +3,7 @@ import { Need } from '../models/Operations.js';
 import { Resident, Home } from '../models/Core.js';
 import { HomeEvent, CaseStudy } from '../models/HomeContent.js';
 import { normalizePaymentStatus } from './foodSlotPaymentNormalize.js';
+import { isFoodSlotPaymentReminderEligible, PAYMENT_REMINDER_MIN_DAYS } from './foodPaymentReminder.service.js';
 
 export type DerivedTaskItem = {
   id: string;
@@ -25,7 +26,7 @@ export async function getDerivedTaskBar(homeId: string): Promise<DerivedTaskItem
   const in7 = addDaysIso(7);
   const in30 = addDaysIso(30);
 
-  const [todaySlots, upcomingSlots, pendingPaySlots, needsPhotos, openNeeds, residents, home, events, stories] =
+  const [todaySlots, upcomingSlots, pendingPaySlots, needsPhotos, rejectedMedia, openNeeds, residents, home, events, stories] =
     await Promise.all([
       FoodSlot.find({
         home_id: homeId,
@@ -48,7 +49,25 @@ export async function getDerivedTaskBar(homeId: string): Promise<DerivedTaskItem
         home_id: homeId,
         date: { $lt: today, $gte: addDaysIso(-14) },
         status: { $in: ['BOOKED', 'PAID'] },
-        $or: [{ completion_photos: { $exists: false } }, { completion_photos: { $size: 0 } }],
+        $and: [
+          {
+            $or: [{ photos_shared_at: { $exists: false } }, { photos_shared_at: null }],
+          },
+          {
+            $or: [
+              { event_media_status: { $exists: false } },
+              { event_media_status: null },
+              { event_media_status: 'REJECTED' },
+            ],
+          },
+        ],
+      }).lean(),
+      FoodSlot.find({
+        home_id: homeId,
+        date: { $lt: today, $gte: addDaysIso(-30) },
+        status: { $in: ['BOOKED', 'PAID'] },
+        event_media_status: 'REJECTED',
+        $or: [{ photos_shared_at: { $exists: false } }, { photos_shared_at: null }],
       }).lean(),
       Need.find({ home_id: homeId, status: { $in: ['OPEN', 'PARTIAL'] } }).lean(),
       Resident.find({ home_id: homeId, status: 'active' }).lean(),
@@ -101,6 +120,7 @@ export async function getDerivedTaskBar(homeId: string): Promise<DerivedTaskItem
     const p = normalizePaymentStatus(s.payment_status, s.status);
     return p === 'FULLY_PENDING' || p === 'PARTIALLY_PAID' || !p;
   });
+  const reminderEligible = pendingPay.filter((s) => isFoodSlotPaymentReminderEligible(s));
   if (pendingPay.length) {
     items.push({
       id: `food-pending-pay`,
@@ -111,14 +131,35 @@ export async function getDerivedTaskBar(homeId: string): Promise<DerivedTaskItem
       href: '/warden/food?tab=upcoming',
     });
   }
+  if (reminderEligible.length) {
+    items.push({
+      id: `food-payment-reminder`,
+      category: 'payment',
+      title: `Send payment reminders (${reminderEligible.length})`,
+      description: `Pending ${PAYMENT_REMINDER_MIN_DAYS}+ days — send reminder via WhatsApp and email`,
+      priority: 'high',
+      href: '/warden/food?tab=upcoming',
+    });
+  }
 
   if (needsPhotos.length) {
     items.push({
       id: `food-photos`,
       category: 'photos',
-      title: `Event photographs pending upload (${needsPhotos.length})`,
-      description: 'Completed meals in the last 14 days without completion photos',
+      title: `Event media upload pending (${needsPhotos.length})`,
+      description: 'Past meals without event photos/videos submitted for admin review',
       priority: 'medium',
+      href: '/warden/food?tab=completed',
+    });
+  }
+
+  if (rejectedMedia.length) {
+    items.push({
+      id: `food-media-rejected`,
+      category: 'photos',
+      title: `Event media rejected — re-upload (${rejectedMedia.length})`,
+      description: 'Admin requested clearer photos or videos',
+      priority: 'high',
       href: '/warden/food?tab=completed',
     });
   }
@@ -181,7 +222,7 @@ export async function getDerivedTaskBar(homeId: string): Promise<DerivedTaskItem
     });
   }
 
-  // Thank-you pending: completed meals with FULLY_PAID but no report_sent_at
+  // Post-event thank-you: paid completed meals without report_sent_at
   const thankYouPending = await FoodSlot.countDocuments({
     home_id: homeId,
     date: { $lt: today, $gte: addDaysIso(-30) },

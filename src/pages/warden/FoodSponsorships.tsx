@@ -3,42 +3,72 @@ import { useSearchParams } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FoodDistributionTableView } from '@/components/food-calendar/FoodDistributionTableView';
+import { FoodReceiptThankYouDialog } from '@/components/food-calendar/FoodReceiptThankYouDialog';
 import { ProjectSwitcher } from '@/components/warden/ProjectSwitcher';
 import { AssignedHomeStates } from '@/components/warden/AssignedHomeStates';
 import { useAssignedHome, useActiveProject } from '@/hooks/useAssignedHome';
 import {
   useFutureBookedFoodSlots,
   useCompletedFoodSlots,
+  usePastFoodSlotsNeedingMedia,
   type FoodSlot,
 } from '@/hooks/useFoodSlots';
-import { useSendFoodThankYou, useShareFoodPhotos } from '@/hooks/useWardenOps';
+import {
+  useSendFoodThankYou,
+  useSendFoodPaymentReminder,
+  useSendFoodReceiptThankYou,
+} from '@/hooks/useWardenOps';
+import { useSubmitFoodEventMedia } from '@/hooks/useFoodEventMedia';
+import { FoodEventMediaDialog } from '@/components/food-calendar/FoodEventMediaDialog';
+import { FoodEventMediaStatusBadge } from '@/components/food-calendar/FoodEventMediaReviewDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { normalizePaymentStatus } from '@/lib/foodSlotUtils';
+import { normalizePaymentStatus, getFoodSlotBalanceDue } from '@/lib/foodSlotUtils';
+import { FOOD_TIME_SLOT_LABELS } from '@/lib/foodSlotConstants';
 import { toast } from 'sonner';
-import { Copy, Mail, Image } from 'lucide-react';
+import { Copy, Mail, Bell, FileText, Camera } from 'lucide-react';
+import {
+  isEligibleForPaymentReminder,
+  daysSinceDate,
+  paymentReminderLabel,
+  PAYMENT_REMINDER_MIN_DAYS,
+} from '@/lib/foodPaymentReminderUtils';
 
-const TIME_LABELS: Record<string, string> = {
-  MORNING: 'Breakfast',
-  AFTERNOON: 'Lunch',
-  EVENING: 'Dinner',
-  REFRESHMENTS: 'Refreshments',
-  OUTSIDE_FOOD: 'Outside Food',
-};
+const TIME_LABELS = FOOD_TIME_SLOT_LABELS;
+
+function slotMealLabel(slot: FoodSlot): string {
+  const base = TIME_LABELS[slot.time_slot] || slot.time_slot;
+  if (slot.time_slot === 'OUTSIDE_FOOD' && slot.meal_type) {
+    return `${base} (${slot.meal_type})`;
+  }
+  return base;
+}
 
 function SlotList({
   slots,
   empty,
   showActions,
+  onOpenReceipt,
+  onUploadMedia,
 }: {
   slots: FoodSlot[];
   empty: string;
   showActions?: boolean;
+  onOpenReceipt?: (slotId: string) => void;
+  onUploadMedia?: (slot: FoodSlot) => void;
 }) {
   const thankYou = useSendFoodThankYou();
-  const sharePhotos = useShareFoodPhotos();
+  const paymentReminder = useSendFoodPaymentReminder();
+  const resendReceiptThankYou = useSendFoodReceiptThankYou();
+
+  const canUploadMedia = (slot: FoodSlot) => {
+    if (slot.photos_shared_at) return false;
+    if (slot.event_media_status === 'PENDING' || slot.event_media_status === 'APPROVED') return false;
+    const today = new Date().toISOString().split('T')[0];
+    return slot.date <= today;
+  };
 
   if (!slots.length) {
     return <p className="text-sm text-muted-foreground py-8 text-center">{empty}</p>;
@@ -57,15 +87,38 @@ function SlotList({
                 <div className="space-y-1">
                   <p className="font-medium">
                     {format(new Date(`${slot.date}T12:00:00`), 'dd MMM yyyy')} ·{' '}
-                    {TIME_LABELS[slot.time_slot] || slot.time_slot}
+                    {slotMealLabel(slot)}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {slot.donor_name || 'Donor'} · ₹{(slot.amount || 0).toLocaleString('en-IN')}
                   </p>
+                  {slot.reason && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{slot.reason}</p>
+                  )}
                   {slot.sponsor_for && (
                     <p className="text-xs text-muted-foreground">
                       {slot.sponsor_for}
-                      {slot.donate_on_behalf_of ? ` · For ${slot.donate_on_behalf_of}` : ''}
+                      {slot.donate_on_behalf_of ? ` · ${slot.donate_on_behalf_of}` : ''}
+                    </p>
+                  )}
+                  {slot.payment_mode && (
+                    <p className="text-xs text-muted-foreground">
+                      {slot.payment_mode}
+                      {pay && pay !== 'FULLY_PAID' && (
+                        <> · Balance ₹{getFoodSlotBalanceDue(slot).toLocaleString('en-IN')}</>
+                      )}
+                    </p>
+                  )}
+                  <div className="pt-1">
+                    <FoodEventMediaStatusBadge
+                      status={slot.event_media_status}
+                      photosSharedAt={slot.photos_shared_at}
+                    />
+                  </div>
+                  {pay && pay !== 'FULLY_PAID' && slot.created_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Pending {daysSinceDate(slot.created_at)} day(s)
+                      {slot.payment_reminder_sent_at ? ' · Reminder sent' : ''}
                     </p>
                   )}
                 </div>
@@ -97,6 +150,76 @@ function SlotList({
                       <Copy className="h-3.5 w-3.5 mr-1" /> Copy payment link
                     </Button>
                   )}
+                  {showActions && pay && pay !== 'FULLY_PAID' && isEligibleForPaymentReminder(slot) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={paymentReminder.isPending}
+                      onClick={() =>
+                        paymentReminder.mutate(
+                          { slotId: slot.id },
+                          {
+                            onSuccess: () => toast.success('Payment reminder sent via email & WhatsApp'),
+                            onError: (e) => toast.error(e.message),
+                          },
+                        )
+                      }
+                    >
+                      <Bell className="h-3.5 w-3.5 mr-1" />
+                      {paymentReminderLabel(slot)}
+                    </Button>
+                  )}
+                  {showActions && pay && pay !== 'FULLY_PAID' && !isEligibleForPaymentReminder(slot) && (
+                    <span className="text-xs text-muted-foreground self-center">
+                      Reminder available after {PAYMENT_REMINDER_MIN_DAYS} days
+                    </span>
+                  )}
+                  {pay === 'FULLY_PAID' && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenReceipt?.(slot.id)}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1" /> Receipt &amp; thank-you
+                      </Button>
+                      {!slot.receipt_thankyou_sent_at && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={resendReceiptThankYou.isPending}
+                          onClick={() =>
+                            resendReceiptThankYou.mutate(
+                              { slotIds: [slot.id] },
+                              {
+                                onSuccess: (data) => {
+                                  if (data?.count) toast.success('Receipt and thank-you sent to donor');
+                                  else toast.message('Receipt/thank-you was already sent or not eligible');
+                                },
+                                onError: (e) => toast.error(e.message),
+                              },
+                            )
+                          }
+                        >
+                          <Mail className="h-3.5 w-3.5 mr-1" /> Send to donor
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {showActions && canUploadMedia(slot) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onUploadMedia?.(slot)}
+                    >
+                      <Camera className="h-3.5 w-3.5 mr-1" />
+                      {slot.event_media_status === 'REJECTED' ? 'Re-upload media' : 'Upload event media'}
+                    </Button>
+                  )}
                   {pay === 'FULLY_PAID' && !slot.report_sent_at && (
                     <Button
                       type="button"
@@ -105,28 +228,12 @@ function SlotList({
                       disabled={thankYou.isPending}
                       onClick={() =>
                         thankYou.mutate(slot.id, {
-                          onSuccess: () => toast.success('Thank-you letter sent'),
+                          onSuccess: () => toast.success('Post-event thank-you sent'),
                           onError: (e) => toast.error(e.message),
                         })
                       }
                     >
-                      <Mail className="h-3.5 w-3.5 mr-1" /> Send thank-you
-                    </Button>
-                  )}
-                  {(slot.completion_photos?.length || 0) > 0 && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={sharePhotos.isPending}
-                      onClick={() =>
-                        sharePhotos.mutate(slot.id, {
-                          onSuccess: () => toast.success('Photographs shared with donor'),
-                          onError: (e) => toast.error(e.message),
-                        })
-                      }
-                    >
-                      <Image className="h-3.5 w-3.5 mr-1" /> Share photos
+                      <Mail className="h-3.5 w-3.5 mr-1" /> Post-event thank-you
                     </Button>
                   )}
                 </div>
@@ -142,10 +249,20 @@ function SlotList({
 const WardenFoodSponsorships = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'book';
+  const [receiptSlotId, setReceiptSlotId] = useState<string | null>(null);
+  const [mediaSlot, setMediaSlot] = useState<FoodSlot | null>(null);
+  const submitEventMedia = useSubmitFoodEventMedia();
   const { homeId, home, isLoading } = useAssignedHome();
   const { assignedProjectIds, home: activeHome } = useActiveProject();
   const { data: upcoming = [] } = useFutureBookedFoodSlots(homeId);
   const { data: completed = [] } = useCompletedFoodSlots(homeId);
+  const { data: needingMedia = [] } = usePastFoodSlotsNeedingMedia(homeId);
+
+  const completedMerged = useMemo(() => {
+    const byId = new Map<string, FoodSlot>();
+    [...needingMedia, ...completed].forEach((slot) => byId.set(slot.id, slot));
+    return [...byId.values()].sort((a, b) => b.date.localeCompare(a.date));
+  }, [needingMedia, completed]);
 
   const lockTrustId = activeHome?.trust_id || home?.trust_id;
   const homeIds = useMemo(
@@ -173,7 +290,7 @@ const WardenFoodSponsorships = () => {
               <TabsList className="flex flex-wrap h-auto gap-1">
                 <TabsTrigger value="book">New Booking</TabsTrigger>
                 <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-                <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
+                <TabsTrigger value="completed">Completed ({completedMerged.length})</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
 
@@ -187,11 +304,23 @@ const WardenFoodSponsorships = () => {
               </TabsContent>
 
               <TabsContent value="upcoming" className="mt-4">
-                <SlotList slots={upcoming} empty="No upcoming food sponsorships." showActions />
+                <SlotList
+                  slots={upcoming}
+                  empty="No upcoming food sponsorships."
+                  showActions
+                  onOpenReceipt={setReceiptSlotId}
+                  onUploadMedia={setMediaSlot}
+                />
               </TabsContent>
 
               <TabsContent value="completed" className="mt-4">
-                <SlotList slots={completed} empty="No completed sponsorships yet." showActions />
+                <SlotList
+                  slots={completedMerged}
+                  empty="No completed sponsorships yet."
+                  showActions
+                  onOpenReceipt={setReceiptSlotId}
+                  onUploadMedia={setMediaSlot}
+                />
               </TabsContent>
 
               <TabsContent value="history" className="mt-4">
@@ -201,14 +330,42 @@ const WardenFoodSponsorships = () => {
                   </CardHeader>
                   <CardContent>
                     <SlotList
-                      slots={[...upcoming, ...completed].sort((a, b) => b.date.localeCompare(a.date))}
+                      slots={[...upcoming, ...completedMerged].sort((a, b) => b.date.localeCompare(a.date))}
                       empty="No sponsorship history."
                       showActions
+                      onOpenReceipt={setReceiptSlotId}
+                      onUploadMedia={setMediaSlot}
                     />
                   </CardContent>
                 </Card>
               </TabsContent>
             </Tabs>
+
+            <FoodReceiptThankYouDialog
+              slotId={receiptSlotId}
+              open={Boolean(receiptSlotId)}
+              onOpenChange={(open) => {
+                if (!open) setReceiptSlotId(null);
+              }}
+            />
+
+            {mediaSlot && (
+              <FoodEventMediaDialog
+                open={Boolean(mediaSlot)}
+                onOpenChange={(open) => {
+                  if (!open) setMediaSlot(null);
+                }}
+                slot={mediaSlot}
+                onSubmit={async ({ notes, photoUrls, videoUrls }) => {
+                  await submitEventMedia.mutateAsync({
+                    slotId: mediaSlot.id,
+                    photos: photoUrls,
+                    videos: videoUrls,
+                    notes,
+                  });
+                }}
+              />
+            )}
           </div>
         </MainLayout>
       )}

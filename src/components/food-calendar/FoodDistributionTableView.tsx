@@ -18,16 +18,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import type { DonorWithStats } from '@/hooks/useDonors';
 import { mergeFoodSlotsByCell } from '@/lib/foodSlotUtils';
+import {
+  FOOD_TIME_SLOTS,
+  FOOD_TIME_SLOT_SHORT_LABELS,
+} from '@/lib/foodSlotConstants';
 
-const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
-  MORNING: 'BF',
-  AFTERNOON: 'Lun',
-  EVENING: 'Din',
-  REFRESHMENTS: 'Ref',
-  OUTSIDE_FOOD: 'Out',
-};
-
-const TIME_SLOTS: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING', 'REFRESHMENTS', 'OUTSIDE_FOOD'];
+const TIME_SLOT_LABELS = FOOD_TIME_SLOT_SHORT_LABELS;
+const TIME_SLOTS = FOOD_TIME_SLOTS;
 
 interface Trust {
   id: string;

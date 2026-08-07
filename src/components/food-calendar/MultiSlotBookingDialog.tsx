@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { sendBookingPaymentEmail } from '@/lib/sendBookingEmail';
 import {
   Dialog,
   DialogContent,
@@ -30,26 +29,30 @@ import { useFoodSlotPricingMap } from '@/hooks/useFoodSlotPricing';
 import { useBulkBookFoodSlots } from '@/hooks/useFoodSlots';
 import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
 import { cn } from '@/lib/utils';
-import { normalizePaymentStatus } from '@/lib/foodSlotUtils';
-import type { FoodSlotPaymentStatus } from '@/lib/foodSlotUtils';
+import {
+  FOOD_OCCASION_OPTIONS,
+  FOOD_TIME_SLOT_LABELS,
+  OUTSIDE_MEAL_TYPES,
+  type OutsideMealType,
+} from '@/lib/foodSlotConstants';
+import { buildStaffFoodPurpose } from '@/lib/foodSponsorshipPurpose';
+import {
+  FoodBookingPaymentSection,
+  type FoodBookingPaymentState,
+} from '@/components/food-calendar/FoodBookingPaymentSection';
+import {
+  buildFoodPaymentLink,
+  sendBookingPaymentNotifications,
+} from '@/lib/sendBookingPaymentNotifications';
+import { resolveBookingPaymentFields, needsPaymentLink } from '@/lib/foodPaymentUtils';
+import { useFoodSlotAttachments } from '@/hooks/useFoodSlotAttachments';
+import { sendFoodBookingAcknowledgement } from '@/lib/sendFoodBookingAcknowledgement';
+import { sendAdminFoodBookingStaffNotify } from '@/lib/sendAdminFoodBookingStaffNotify';
+import { sendFoodReceiptThankYou } from '@/lib/sendFoodReceiptThankYou';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
-const TIME_SLOT_LABELS: Record<FoodTimeSlot, string> = {
-  MORNING: 'Breakfast',
-  AFTERNOON: 'Lunch',
-  EVENING: 'Dinner',
-  REFRESHMENTS: 'Refreshments',
-  OUTSIDE_FOOD: 'Outside Food',
-};
-
-const SPONSOR_FOR_OPTIONS = [
-  'Birthday',
-  'Anniversary',
-  'Memorial/Shradh',
-  'Festival',
-  'Corporate CSR',
-  'Regular Sponsorship',
-  'Other',
-];
+const TIME_SLOT_LABELS = FOOD_TIME_SLOT_LABELS;
 
 interface SelectedSlot {
   date: string;
@@ -60,11 +63,24 @@ interface SelectedSlot {
 }
 
 interface SlotDetails {
-  sponsorFor: string;
-  customSponsorFor: string;
-  reason: string;
-  notes: string;
-  donateOnBehalfOf: string;
+  occasion: string;
+  customOccasion: string;
+  purpose: string;
+  purposeEdited: boolean;
+  additionalNotes: string;
+  personName: string;
+  outsideMealType: OutsideMealType;
+}
+
+function resolveOccasionLabel(occasion: string, customOccasion: string): string {
+  return occasion === 'Others' ? customOccasion.trim() : occasion;
+}
+
+function slotPurposeLabel(slot: SelectedSlot, outsideMealType?: OutsideMealType): string {
+  if (slot.timeSlot === 'OUTSIDE_FOOD' && outsideMealType) {
+    return `${TIME_SLOT_LABELS[slot.timeSlot]} (${outsideMealType})`;
+  }
+  return TIME_SLOT_LABELS[slot.timeSlot];
 }
 
 interface MultiSlotBookingDialogProps {
@@ -88,6 +104,7 @@ export function MultiSlotBookingDialog({
   const createDonor = useCreateDonor();
   const { priceMap } = useFoodSlotPricingMap();
   const bulkBookMutation = useBulkBookFoodSlots();
+  const { user } = useAuth();
 
   // Step tracking: 'ask' | 'same' | 'different'
   const [step, setStep] = useState<'ask' | 'same' | 'different'>('ask');
@@ -104,12 +121,22 @@ export function MultiSlotBookingDialog({
     aadhar_number: '',
     email: '',
   });
-  const [sponsorFor, setSponsorFor] = useState<string>('');
-  const [customSponsorFor, setCustomSponsorFor] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [donateOnBehalfOf, setDonateOnBehalfOf] = useState<string>('');
-  const [paymentStatus, setPaymentStatus] = useState<FoodSlotPaymentStatus>('FULLY_PENDING');
+  const [occasion, setOccasion] = useState<string>('');
+  const [customOccasion, setCustomOccasion] = useState<string>('');
+  const [purpose, setPurpose] = useState<string>('');
+  const [purposeEdited, setPurposeEdited] = useState(false);
+  const [additionalNotes, setAdditionalNotes] = useState<string>('');
+  const [personName, setPersonName] = useState<string>('');
+  const [outsideMealType, setOutsideMealType] = useState<OutsideMealType>('Breakfast');
+  const [paymentState, setPaymentState] = useState<FoodBookingPaymentState>({
+    paymentMode: 'NEFT',
+    cashStatus: 'FULLY_PENDING',
+    amountReceived: '',
+    chequeNumber: '',
+    bankName: '',
+    chequeImageUrl: '',
+  });
+  const { uploadChequeImage, uploading: chequeUploading } = useFoodSlotAttachments();
   const [useManualAmount, setUseManualAmount] = useState(false);
   const [manualAmount, setManualAmount] = useState<string>('');
 
@@ -123,11 +150,13 @@ export function MultiSlotBookingDialog({
       selectedSlots.forEach((slot, idx) => {
         const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
         newMap.set(key, {
-          sponsorFor: '',
-          customSponsorFor: '',
-          reason: '',
-          notes: '',
-          donateOnBehalfOf: '',
+          occasion: '',
+          customOccasion: '',
+          purpose: '',
+          purposeEdited: false,
+          additionalNotes: '',
+          personName: '',
+          outsideMealType: 'Breakfast',
         });
       });
       setPerSlotDetails(newMap);
@@ -146,12 +175,21 @@ export function MultiSlotBookingDialog({
     if (open) {
       setStep('ask');
       setSameForAll(null);
-      setSponsorFor('');
-      setCustomSponsorFor('');
-      setReason('');
-      setNotes('');
-      setDonateOnBehalfOf('');
-      setPaymentStatus('FULLY_PENDING');
+      setOccasion('');
+      setCustomOccasion('');
+      setPurpose('');
+      setPurposeEdited(false);
+      setAdditionalNotes('');
+      setPersonName('');
+      setOutsideMealType('Breakfast');
+      setPaymentState({
+        paymentMode: 'NEFT',
+        cashStatus: 'FULLY_PENDING',
+        amountReceived: '',
+        chequeNumber: '',
+        bankName: '',
+        chequeImageUrl: '',
+      });
       setUseManualAmount(false);
       setManualAmount('');
       setShowNewDonor(false);
@@ -171,25 +209,89 @@ export function MultiSlotBookingDialog({
     }, 0);
   }, [selectedSlots, priceMap]);
 
-  const effectiveAmount = useManualAmount && manualAmount 
-    ? parseFloat(manualAmount) || 0 
+  const hasOutsideFoodSlot = useMemo(
+    () => selectedSlots.some((slot) => slot.timeSlot === 'OUTSIDE_FOOD'),
+    [selectedSlots],
+  );
+
+  const effectiveAmount = useManualAmount && manualAmount
+    ? parseFloat(manualAmount) || 0
     : calculatedTotal;
 
-  const getEffectiveSponsorFor = (sponsorFor: string, customSponsorFor: string) => {
-    return sponsorFor === 'Other' ? customSponsorFor : sponsorFor;
-  };
+  const buildPurposeForSlot = (
+    slot: SelectedSlot,
+    occasionValue: string,
+    customOccasionValue: string,
+    personNameValue: string,
+    outsideMeal?: OutsideMealType,
+  ) =>
+    buildStaffFoodPurpose({
+      homeName: slot.homeName,
+      timeSlot: slot.timeSlot,
+      outsideMealType: slot.timeSlot === 'OUTSIDE_FOOD' ? outsideMeal : undefined,
+      occasion: occasionValue,
+      customOccasion: customOccasionValue,
+      personName: personNameValue,
+      eventDate: slot.date,
+    });
 
-  const updateSlotDetails = (key: string, field: keyof SlotDetails, value: string) => {
-    setPerSlotDetails(prev => {
+  // Auto-generate purpose for same-for-all mode
+  useEffect(() => {
+    if (step !== 'same' || purposeEdited || !occasion) return;
+    const firstSlot = selectedSlots[0];
+    if (!firstSlot) return;
+    setPurpose(
+      buildPurposeForSlot(firstSlot, occasion, customOccasion, personName, outsideMealType),
+    );
+  }, [
+    step,
+    occasion,
+    customOccasion,
+    personName,
+    outsideMealType,
+    selectedSlots,
+    purposeEdited,
+  ]);
+
+  const updateSlotDetails = (
+    key: string,
+    field: keyof SlotDetails,
+    value: string | boolean,
+  ) => {
+    setPerSlotDetails((prev) => {
       const newMap = new Map(prev);
       const existing = newMap.get(key) || {
-        sponsorFor: '',
-        customSponsorFor: '',
-        reason: '',
-        notes: '',
-        donateOnBehalfOf: '',
+        occasion: '',
+        customOccasion: '',
+        purpose: '',
+        purposeEdited: false,
+        additionalNotes: '',
+        personName: '',
+        outsideMealType: 'Breakfast' as OutsideMealType,
       };
-      newMap.set(key, { ...existing, [field]: value });
+      const updated = { ...existing, [field]: value };
+
+      if (
+        field !== 'purpose' &&
+        field !== 'purposeEdited' &&
+        !updated.purposeEdited &&
+        updated.occasion
+      ) {
+        const slot = selectedSlots.find(
+          (s) => `${s.date}-${s.homeId}-${s.timeSlot}` === key,
+        );
+        if (slot) {
+          updated.purpose = buildPurposeForSlot(
+            slot,
+            updated.occasion,
+            updated.customOccasion,
+            updated.personName,
+            updated.outsideMealType,
+          );
+        }
+      }
+
+      newMap.set(key, updated);
       return newMap;
     });
   };
@@ -207,7 +309,7 @@ export function MultiSlotBookingDialog({
     setSameForAll(null);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (openPayPage = false) => {
     let effectiveDonorId = donorId || null;
 
     if (showNewDonor && !effectiveDonorId) {
@@ -229,115 +331,248 @@ export function MultiSlotBookingDialog({
       }
     }
 
-    const normalizedPayment =
-      normalizePaymentStatus(paymentStatus) || 'FULLY_PENDING';
+    const paymentFields = resolveBookingPaymentFields({
+      mode: paymentState.paymentMode,
+      totalAmount: effectiveAmount,
+      cashStatus: paymentState.cashStatus,
+      amountReceived: parseFloat(paymentState.amountReceived) || 0,
+    });
+
+    if (
+      paymentState.paymentMode === 'Cash' &&
+      paymentState.cashStatus === 'PARTIALLY_PAID' &&
+      (parseFloat(paymentState.amountReceived) <= 0 ||
+        parseFloat(paymentState.amountReceived) >= effectiveAmount)
+    ) {
+      toast.error('Enter a valid partial amount received (less than total)');
+      return;
+    }
+
+    if (paymentState.paymentMode === 'Cheque') {
+      if (!paymentState.chequeNumber.trim() || !paymentState.bankName.trim()) {
+        toast.error('Cheque number and bank name are required');
+        return;
+      }
+      if (!paymentState.chequeImageUrl) {
+        toast.error('Please upload a cheque image');
+        return;
+      }
+    }
+
+    const normalizedPayment = paymentFields.payment_status;
+    let donationId: string | null = null;
+
+    const donor =
+      preSelectedDonor ||
+      donors.find((d) => d.id === effectiveDonorId) ||
+      (effectiveDonorId && showNewDonor
+        ? {
+            id: effectiveDonorId,
+            name: newDonor.name,
+            email: newDonor.email,
+            phone: newDonor.phone,
+          }
+        : undefined);
+    const shouldCreateDonation =
+      effectiveAmount > 0 &&
+      needsPaymentLink({
+        mode: paymentState.paymentMode,
+        payment_status: normalizedPayment,
+        totalAmount: effectiveAmount,
+      });
+
+    if (shouldCreateDonation && donor) {
+      try {
+        const homeId = selectedSlots[0]?.homeId;
+        const { data: insertedDonation, error } = await supabase
+          .from('donations')
+          .insert({
+            donor_id: effectiveDonorId!,
+            home_id: homeId,
+            trust_id: trustId,
+            amount_pledged: effectiveAmount,
+            sponsorship_type: 'ONE_TIME' as const,
+            payment_mode: paymentState.paymentMode === 'NEFT' ? 'offline' : 'offline',
+            start_date: selectedSlots[0]?.date || format(new Date(), 'yyyy-MM-dd'),
+            status: 'PLEDGED' as const,
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+        donationId = insertedDonation?.id || null;
+      } catch (err) {
+        console.error('Failed to create donation for payment link:', err);
+      }
+    }
+
+    const sharedPaymentData = {
+      payment_status: normalizedPayment,
+      payment_mode: paymentFields.payment_mode,
+      amount_paid: paymentFields.amount_paid,
+      donation_id: donationId,
+      cheque_number: paymentState.paymentMode === 'Cheque' ? paymentState.chequeNumber.trim() : null,
+      bank_name: paymentState.paymentMode === 'Cheque' ? paymentState.bankName.trim() : null,
+      cheque_image_url: paymentState.paymentMode === 'Cheque' ? paymentState.chequeImageUrl : null,
+      cheque_status: paymentState.paymentMode === 'Cheque' ? 'PENDING' : null,
+    };
+    let bookedSlots: Array<{ id?: string }> = [];
 
     if (step === 'same') {
-      // Same details for all slots
-      await bulkBookMutation.mutateAsync({
-        slots: selectedSlots.map(slot => ({
+      const sharedOccasion = resolveOccasionLabel(occasion, customOccasion);
+      bookedSlots = await bulkBookMutation.mutateAsync({
+        slots: selectedSlots.map((slot) => ({
           date: slot.date,
           homeId: slot.homeId,
           timeSlot: slot.timeSlot,
           existingSlotId: slot.existingSlotId,
+          individualDetails: {
+            reason: purposeEdited
+              ? purpose
+              : buildPurposeForSlot(
+                  slot,
+                  occasion,
+                  customOccasion,
+                  personName,
+                  outsideMealType,
+                ),
+            sponsor_for: sharedOccasion,
+            note: additionalNotes,
+            donate_on_behalf_of: personName || null,
+            meal_type: slot.timeSlot === 'OUTSIDE_FOOD' ? outsideMealType : null,
+          },
         })),
         bookingData: {
           donor_id: effectiveDonorId,
-          reason,
-          sponsor_for: getEffectiveSponsorFor(sponsorFor, customSponsorFor),
-          note: notes,
+          reason: purpose,
+          sponsor_for: sharedOccasion,
+          note: additionalNotes,
           amount: effectiveAmount,
-          payment_status: normalizedPayment,
-          donate_on_behalf_of: donateOnBehalfOf || null,
+          ...sharedPaymentData,
+          donate_on_behalf_of: personName || null,
+          meal_type: hasOutsideFoodSlot ? outsideMealType : null,
         },
         trustId,
+        useIndividualDetails: true,
       });
     } else {
-      // Different details for each slot
-      await bulkBookMutation.mutateAsync({
-        slots: selectedSlots.map(slot => {
+      bookedSlots = await bulkBookMutation.mutateAsync({
+        slots: selectedSlots.map((slot) => {
           const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
           const details = perSlotDetails.get(key);
+          const occasionLabel = details
+            ? resolveOccasionLabel(details.occasion, details.customOccasion)
+            : '';
           return {
             date: slot.date,
             homeId: slot.homeId,
             timeSlot: slot.timeSlot,
             existingSlotId: slot.existingSlotId,
-            individualDetails: details ? {
-              reason: details.reason,
-              sponsor_for: getEffectiveSponsorFor(details.sponsorFor, details.customSponsorFor),
-              note: details.notes,
-              donate_on_behalf_of: details.donateOnBehalfOf || null,
-            } : undefined,
+            individualDetails: details
+              ? {
+                  reason: details.purpose,
+                  sponsor_for: occasionLabel,
+                  note: details.additionalNotes,
+                  donate_on_behalf_of: details.personName || null,
+                  meal_type:
+                    slot.timeSlot === 'OUTSIDE_FOOD' ? details.outsideMealType : null,
+                }
+              : undefined,
           };
         }),
         bookingData: {
           donor_id: effectiveDonorId,
-          reason: '', // Will use individual
-          sponsor_for: '', // Will use individual
-          note: '', // Will use individual
+          reason: '',
+          sponsor_for: '',
+          note: '',
           amount: effectiveAmount,
-          payment_status: normalizedPayment,
-          donate_on_behalf_of: null, // Will use individual
+          ...sharedPaymentData,
+          donate_on_behalf_of: null,
         },
         trustId,
         useIndividualDetails: true,
       });
     }
 
-    // After successful booking, create donation + send payment email
-    const donor = preSelectedDonor || donors.find(d => d.id === effectiveDonorId);
-    if (donor && effectiveAmount > 0 && normalizedPayment !== 'FULLY_PAID') {
+    const bookedSlotIds = bookedSlots.map((s) => s.id).filter(Boolean) as string[];
+    if (bookedSlotIds.length) {
       try {
-        const homeId = selectedSlots[0]?.homeId;
-        const { data: insertedDonation } = await supabase
-          .from('donations')
-          .insert({
-            donor_id: donor.id,
-            home_id: homeId,
-            trust_id: trustId,
-            amount_pledged: effectiveAmount,
-            sponsorship_type: 'ONE_TIME' as const,
-            payment_mode: 'offline' as const,
-            start_date: selectedSlots[0]?.date || format(new Date(), 'yyyy-MM-dd'),
-            status: 'PLEDGED' as const,
-          })
-          .select('id')
-          .single();
-
-        if (insertedDonation && donor.email) {
-          const slotSummary = selectedSlots
-            .map(s => `${format(new Date(s.date), 'dd MMM yyyy')} - ${TIME_SLOT_LABELS[s.timeSlot]}`)
-            .join(', ');
-
-          await sendBookingPaymentEmail({
-            donorEmail: donor.email,
-            donorName: donor.name,
-            donationId: insertedDonation.id,
-            amount: effectiveAmount,
-            homeName: selectedSlots[0]?.homeName || 'Project',
-            eventDescription: `Food Sponsorship (${slotSummary})`,
-            date: selectedSlots[0]?.date || format(new Date(), 'dd MMM yyyy'),
-          });
+        const ack = await sendFoodBookingAcknowledgement(bookedSlotIds);
+        if (ack?.sent) {
+          toast.success('Acknowledgement sent to donor via email/WhatsApp');
         }
-      } catch (emailErr) {
-        console.error('Failed to send food booking payment email:', emailErr);
+      } catch (ackErr) {
+        console.error('Failed to send booking acknowledgement:', ackErr);
+        toast.error('Booking saved, but acknowledgement could not be sent');
       }
+
+      if (user?.role === 'admin' || user?.role === 'super_admin') {
+        try {
+          const staffNotify = await sendAdminFoodBookingStaffNotify(bookedSlotIds);
+          if (staffNotify && !staffNotify.skipped && staffNotify.workersNotified > 0) {
+            toast.success('Assigned social workers notified');
+          }
+        } catch (staffErr) {
+          console.error('Failed to notify social workers:', staffErr);
+          toast.error('Booking saved, but social worker notifications could not be sent');
+        }
+      }
+
+      if (normalizedPayment === 'FULLY_PAID') {
+        try {
+          const receiptResult = await sendFoodReceiptThankYou(bookedSlotIds);
+          if (receiptResult?.count) {
+            toast.success('Receipt and thank-you letter sent to donor');
+          }
+        } catch (receiptErr) {
+          console.error('Failed to send receipt/thank-you:', receiptErr);
+          toast.error('Booking saved, but receipt/thank-you could not be sent');
+        }
+      }
+    }
+
+    if (donationId && donor && paymentState.paymentMode === 'NEFT') {
+      try {
+        const slotSummary = selectedSlots
+          .map((s) => `${format(new Date(s.date), 'dd MMM yyyy')} - ${TIME_SLOT_LABELS[s.timeSlot]}`)
+          .join(', ');
+
+        await sendBookingPaymentNotifications({
+          donorEmail: donor.email,
+          donorPhone: donor.phone,
+          donorName: donor.name,
+          donationId,
+          amount: effectiveAmount,
+          homeName: selectedSlots[0]?.homeName || 'Project',
+          eventDescription: `Food Sponsorship (${slotSummary})`,
+          date: selectedSlots[0]?.date || format(new Date(), 'dd MMM yyyy'),
+        });
+      } catch (notifyErr) {
+        console.error('Failed to send payment notifications:', notifyErr);
+      }
+    }
+
+    if (openPayPage && donationId) {
+      window.open(buildFoodPaymentLink(donationId), '_blank', 'noopener,noreferrer');
+    } else if (donationId && paymentState.paymentMode === 'NEFT') {
+      toast.success('Booking saved. Payment link sent to donor.');
     }
 
     onSuccess();
     onOpenChange(false);
   };
 
-  const isValidSameForAll = getEffectiveSponsorFor(sponsorFor, customSponsorFor) && reason;
-  
+  const isValidSameForAll =
+    !!occasion &&
+    (occasion !== 'Others' || !!customOccasion.trim()) &&
+    !!purpose.trim();
+
   const isValidDifferent = useMemo(() => {
     for (const slot of selectedSlots) {
       const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
       const details = perSlotDetails.get(key);
       if (!details) return false;
-      const effectiveSponsorFor = getEffectiveSponsorFor(details.sponsorFor, details.customSponsorFor);
-      if (!effectiveSponsorFor || !details.reason) return false;
+      const occasionLabel = resolveOccasionLabel(details.occasion, details.customOccasion);
+      if (!occasionLabel || !details.purpose.trim()) return false;
     }
     return true;
   }, [selectedSlots, perSlotDetails]);
@@ -347,19 +582,39 @@ export function MultiSlotBookingDialog({
     !!donorId ||
     (showNewDonor && !!newDonor.name.trim() && !!newDonor.phone.trim());
 
+  const isValidPayment = useMemo(() => {
+    if (paymentState.paymentMode === 'Cheque') {
+      return (
+        !!paymentState.chequeNumber.trim() &&
+        !!paymentState.bankName.trim() &&
+        !!paymentState.chequeImageUrl
+      );
+    }
+    if (paymentState.paymentMode === 'Cash' && paymentState.cashStatus === 'PARTIALLY_PAID') {
+      const received = parseFloat(paymentState.amountReceived);
+      return received > 0 && received < effectiveAmount;
+    }
+    return true;
+  }, [paymentState, effectiveAmount]);
+
+  const handleChequeUpload = async (file: File) => {
+    const url = await uploadChequeImage(
+      file,
+      selectedSlots.map((s) => s.date).join('-'),
+    );
+    if (url) {
+      setPaymentState((prev) => ({ ...prev, chequeImageUrl: url }));
+    }
+  };
+
   const isValid =
     isValidDonor &&
+    isValidPayment &&
     (step === 'same'
       ? isValidSameForAll
       : step === 'different'
         ? isValidDifferent
         : sameForAll !== null);
-
-  const selectedDonorName = useMemo(() => {
-    if (preSelectedDonor) return preSelectedDonor.name;
-    const donor = donors.find(d => d.id === donorId);
-    return donor?.name || '';
-  }, [donorId, donors, preSelectedDonor]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -378,7 +633,7 @@ export function MultiSlotBookingDialog({
                   {selectedSlots.map((slot, idx) => (
                     <div key={idx} className="flex justify-between items-center">
                       <span>
-                        {format(new Date(slot.date), 'dd MMM yyyy')} - {slot.homeName} - {TIME_SLOT_LABELS[slot.timeSlot]}
+                        {format(new Date(slot.date), 'dd MMM yyyy')} - {slot.homeName} - {slotPurposeLabel(slot, slot.timeSlot === 'OUTSIDE_FOOD' ? outsideMealType : undefined)}
                       </span>
                       <span className="text-muted-foreground flex items-center">
                         <IndianRupee className="h-3 w-3" />
@@ -517,7 +772,7 @@ export function MultiSlotBookingDialog({
                     <RadioGroupItem value="yes" id="same-yes" />
                     <Label htmlFor="same-yes" className="cursor-pointer flex-1">
                       <span className="font-medium">Yes</span>
-                      <p className="text-sm text-muted-foreground">Apply same reason, occasion, and notes to all slots</p>
+                      <p className="text-sm text-muted-foreground">Apply same occasion, purpose, and notes to all slots</p>
                     </Label>
                   </div>
                   <div className="flex items-center space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 cursor-pointer">
@@ -541,59 +796,99 @@ export function MultiSlotBookingDialog({
             {/* Step 2a: Same for all - Show single form */}
             {step === 'same' && (
               <>
-                {/* Donate On Behalf Of */}
+                {hasOutsideFoodSlot && (
+                  <div className="space-y-2">
+                    <Label>Outside Food — Meal Type *</Label>
+                    <Select
+                      value={outsideMealType}
+                      onValueChange={(val) => {
+                        setOutsideMealType(val as OutsideMealType);
+                        setPurposeEdited(false);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select meal type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OUTSIDE_MEAL_TYPES.map((meal) => (
+                          <SelectItem key={meal} value={meal}>
+                            {meal}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label>Donate On Behalf Of (Optional)</Label>
+                  <Label>Person Name (if applicable)</Label>
                   <Input
-                    placeholder="Enter name if donating on behalf of someone (e.g., Father, Mother)"
-                    value={donateOnBehalfOf}
-                    onChange={(e) => setDonateOnBehalfOf(e.target.value)}
+                    placeholder="e.g., T.S. Uma Maheswari"
+                    value={personName}
+                    onChange={(e) => {
+                      setPersonName(e.target.value);
+                      setPurposeEdited(false);
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave empty if {selectedDonorName || 'the donor'} is sponsoring for themselves
+                    Name of the person being honoured or remembered
                   </p>
                 </div>
 
-                {/* Sponsor For */}
                 <div className="space-y-2">
-                  <Label>Sponsor For (Occasion) *</Label>
-                  <Select value={sponsorFor} onValueChange={setSponsorFor}>
+                  <Label>Occasion Type *</Label>
+                  <Select
+                    value={occasion}
+                    onValueChange={(val) => {
+                      setOccasion(val);
+                      setPurposeEdited(false);
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select occasion" />
                     </SelectTrigger>
                     <SelectContent>
-                      {SPONSOR_FOR_OPTIONS.map(option => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      {FOOD_OCCASION_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {sponsorFor === 'Other' && (
+                  {occasion === 'Others' && (
                     <Input
                       placeholder="Specify occasion"
-                      value={customSponsorFor}
-                      onChange={(e) => setCustomSponsorFor(e.target.value)}
+                      value={customOccasion}
+                      onChange={(e) => {
+                        setCustomOccasion(e.target.value);
+                        setPurposeEdited(false);
+                      }}
                     />
                   )}
                 </div>
 
-                {/* Reason */}
                 <div className="space-y-2">
-                  <Label>Reason *</Label>
+                  <Label>Purpose *</Label>
                   <Textarea
-                    placeholder="Enter the reason for sponsorship..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={2}
+                    placeholder="Purpose will be generated from your selections…"
+                    value={purpose}
+                    onChange={(e) => {
+                      setPurpose(e.target.value);
+                      setPurposeEdited(true);
+                    }}
+                    rows={3}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Auto-generated from home, meal, occasion, and person name. You can edit before saving.
+                  </p>
                 </div>
 
-                {/* Notes */}
                 <div className="space-y-2">
-                  <Label>Notes</Label>
+                  <Label>Additional Notes</Label>
                   <Textarea
-                    placeholder="Any additional notes..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Special instructions or donor requests…"
+                    value={additionalNotes}
+                    onChange={(e) => setAdditionalNotes(e.target.value)}
                     rows={2}
                   />
                 </div>
@@ -626,28 +921,13 @@ export function MultiSlotBookingDialog({
                   )}
                 </div>
 
-                {/* Payment Status */}
-                <div className="space-y-3">
-                  <Label>Payment Status *</Label>
-                  <RadioGroup
-                    value={paymentStatus}
-                    onValueChange={(v) => setPaymentStatus(v as FoodSlotPaymentStatus)}
-                    className="flex flex-wrap gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="FULLY_PAID" id="paid" />
-                      <Label htmlFor="paid" className="font-normal cursor-pointer">Fully Paid</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="FULLY_PENDING" id="yet-to-pay" />
-                      <Label htmlFor="yet-to-pay" className="font-normal cursor-pointer">Pending</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PARTIALLY_PAID" id="prepaid" />
-                      <Label htmlFor="prepaid" className="font-normal cursor-pointer">Partially Paid</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                <FoodBookingPaymentSection
+                  effectiveAmount={effectiveAmount}
+                  state={paymentState}
+                  onChange={(patch) => setPaymentState((prev) => ({ ...prev, ...patch }))}
+                  onChequeFileSelect={handleChequeUpload}
+                  chequeUploading={chequeUploading}
+                />
               </>
             )}
 
@@ -658,14 +938,20 @@ export function MultiSlotBookingDialog({
                   {selectedSlots.map((slot, idx) => {
                     const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
                     const details = perSlotDetails.get(key) || {
-                      sponsorFor: '',
-                      customSponsorFor: '',
-                      reason: '',
-                      notes: '',
-                      donateOnBehalfOf: '',
+                      occasion: '',
+                      customOccasion: '',
+                      purpose: '',
+                      purposeEdited: false,
+                      additionalNotes: '',
+                      personName: '',
+                      outsideMealType: 'Breakfast' as OutsideMealType,
                     };
-                    const effectiveSponsorFor = getEffectiveSponsorFor(details.sponsorFor, details.customSponsorFor);
-                    const isComplete = effectiveSponsorFor && details.reason;
+                    const occasionLabel = resolveOccasionLabel(
+                      details.occasion,
+                      details.customOccasion,
+                    );
+                    const isComplete = !!occasionLabel && !!details.purpose.trim();
+                    const isOutsideFood = slot.timeSlot === 'OUTSIDE_FOOD';
 
                     return (
                       <AccordionItem key={key} value={key}>
@@ -678,64 +964,111 @@ export function MultiSlotBookingDialog({
                               {isComplete ? '✓' : idx + 1}
                             </span>
                             <span>
-                              {format(new Date(slot.date), 'dd MMM')} - {slot.homeName} - {TIME_SLOT_LABELS[slot.timeSlot]}
+                              {format(new Date(slot.date), 'dd MMM')} - {slot.homeName} -{' '}
+                              {slotPurposeLabel(slot, isOutsideFood ? details.outsideMealType : undefined)}
                             </span>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="space-y-4 pt-2">
-                          {/* Donate On Behalf Of */}
+                          {isOutsideFood && (
+                            <div className="space-y-2">
+                              <Label>Outside Food — Meal Type *</Label>
+                              <Select
+                                value={details.outsideMealType}
+                                onValueChange={(val) =>
+                                  updateSlotDetails(key, 'outsideMealType', val)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select meal type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {OUTSIDE_MEAL_TYPES.map((meal) => (
+                                    <SelectItem key={meal} value={meal}>
+                                      {meal}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
                           <div className="space-y-2">
-                            <Label>Donate On Behalf Of (Optional)</Label>
+                            <Label>Person Name (if applicable)</Label>
                             <Input
-                              placeholder="Enter name if donating on behalf of someone"
-                              value={details.donateOnBehalfOf}
-                              onChange={(e) => updateSlotDetails(key, 'donateOnBehalfOf', e.target.value)}
+                              placeholder="Name of person being honoured or remembered"
+                              value={details.personName}
+                              onChange={(e) =>
+                                updateSlotDetails(key, 'personName', e.target.value)
+                              }
                             />
                           </div>
 
-                          {/* Sponsor For */}
                           <div className="space-y-2">
-                            <Label>Sponsor For (Occasion) *</Label>
-                            <Select 
-                              value={details.sponsorFor} 
-                              onValueChange={(val) => updateSlotDetails(key, 'sponsorFor', val)}
+                            <Label>Occasion Type *</Label>
+                            <Select
+                              value={details.occasion}
+                              onValueChange={(val) => updateSlotDetails(key, 'occasion', val)}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select occasion" />
                               </SelectTrigger>
                               <SelectContent>
-                                {SPONSOR_FOR_OPTIONS.map(option => (
-                                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                                {FOOD_OCCASION_OPTIONS.map((option) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                            {details.sponsorFor === 'Other' && (
+                            {details.occasion === 'Others' && (
                               <Input
                                 placeholder="Specify occasion"
-                                value={details.customSponsorFor}
-                                onChange={(e) => updateSlotDetails(key, 'customSponsorFor', e.target.value)}
+                                value={details.customOccasion}
+                                onChange={(e) =>
+                                  updateSlotDetails(key, 'customOccasion', e.target.value)
+                                }
                               />
                             )}
                           </div>
 
-                          {/* Reason */}
                           <div className="space-y-2">
-                            <Label>Reason *</Label>
+                            <Label>Purpose *</Label>
                             <Textarea
-                              placeholder="Enter the reason for sponsorship..."
-                              value={details.reason}
-                              onChange={(e) => updateSlotDetails(key, 'reason', e.target.value)}
-                              rows={2}
+                              placeholder="Purpose will be generated from your selections…"
+                              value={details.purpose}
+                              onChange={(e) => {
+                                setPerSlotDetails((prev) => {
+                                  const newMap = new Map(prev);
+                                  const existing = newMap.get(key) || {
+                                    occasion: '',
+                                    customOccasion: '',
+                                    purpose: '',
+                                    purposeEdited: false,
+                                    additionalNotes: '',
+                                    personName: '',
+                                    outsideMealType: 'Breakfast' as OutsideMealType,
+                                  };
+                                  newMap.set(key, {
+                                    ...existing,
+                                    purpose: e.target.value,
+                                    purposeEdited: true,
+                                  });
+                                  return newMap;
+                                });
+                              }}
+                              rows={3}
                             />
                           </div>
 
-                          {/* Notes */}
                           <div className="space-y-2">
-                            <Label>Notes</Label>
+                            <Label>Additional Notes</Label>
                             <Textarea
-                              placeholder="Any additional notes..."
-                              value={details.notes}
-                              onChange={(e) => updateSlotDetails(key, 'notes', e.target.value)}
+                              placeholder="Special instructions or donor requests…"
+                              value={details.additionalNotes}
+                              onChange={(e) =>
+                                updateSlotDetails(key, 'additionalNotes', e.target.value)
+                              }
                               rows={2}
                             />
                           </div>
@@ -773,28 +1106,14 @@ export function MultiSlotBookingDialog({
                   )}
                 </div>
 
-                {/* Payment Status - shared */}
-                <div className="space-y-3">
-                  <Label>Payment Status *</Label>
-                  <RadioGroup
-                    value={paymentStatus}
-                    onValueChange={(v) => setPaymentStatus(v as FoodSlotPaymentStatus)}
-                    className="flex flex-wrap gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="FULLY_PAID" id="paid-diff" />
-                      <Label htmlFor="paid-diff" className="font-normal cursor-pointer">Fully Paid</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="FULLY_PENDING" id="yet-to-pay-diff" />
-                      <Label htmlFor="yet-to-pay-diff" className="font-normal cursor-pointer">Pending</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="PARTIALLY_PAID" id="prepaid-diff" />
-                      <Label htmlFor="prepaid-diff" className="font-normal cursor-pointer">Partially Paid</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                <FoodBookingPaymentSection
+                  effectiveAmount={effectiveAmount}
+                  state={paymentState}
+                  onChange={(patch) => setPaymentState((prev) => ({ ...prev, ...patch }))}
+                  onChequeFileSelect={handleChequeUpload}
+                  chequeUploading={chequeUploading}
+                  idPrefix="diff"
+                />
               </>
             )}
           </div>
@@ -814,15 +1133,29 @@ export function MultiSlotBookingDialog({
               Continue
             </Button>
           ) : (
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!isValid || bulkBookMutation.isPending || createDonor.isPending}
-            >
-              {(bulkBookMutation.isPending || createDonor.isPending) && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <>
+              {paymentState.paymentMode === 'NEFT' && effectiveAmount > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleSubmit(true)}
+                  disabled={!isValid || bulkBookMutation.isPending || createDonor.isPending}
+                >
+                  {(bulkBookMutation.isPending || createDonor.isPending) && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  Pay Now
+                </Button>
               )}
-              Confirm Booking ({selectedSlots.length} slot{selectedSlots.length > 1 ? 's' : ''})
-            </Button>
+              <Button
+                onClick={() => handleSubmit(false)}
+                disabled={!isValid || bulkBookMutation.isPending || createDonor.isPending}
+              >
+                {(bulkBookMutation.isPending || createDonor.isPending) && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Confirm Booking ({selectedSlots.length} slot{selectedSlots.length > 1 ? 's' : ''})
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>

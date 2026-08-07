@@ -1,24 +1,47 @@
 import { format } from 'date-fns';
 import type { FoodDonationDetails, FoodDonationOccasion } from '@/components/donor/DonorFoodDonationDetailsForm';
 import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
+import {
+  buildStaffFoodPurpose,
+  getHomeFoodCategory,
+} from '@/lib/foodSponsorshipPurpose';
+import {
+  foodMealPhrase,
+  type OutsideMealType,
+} from '@/lib/foodSlotConstants';
 
 export const FOOD_OCCASION_LABELS: Record<FoodDonationOccasion, string> = {
   birthday: 'Birthday',
-  ancestor_remembrance: 'memorial day',
+  ancestor_remembrance: 'Memorial Day',
   festival: 'Festival / Celebration',
-  special_day: 'Special Day',
-  other: 'other occasion',
+  special_day: 'Special Occasion',
+  other: 'Others',
+};
+
+const DONOR_TO_STAFF_OCCASION: Record<FoodDonationOccasion, string> = {
+  birthday: 'Birthday',
+  ancestor_remembrance: 'Memorial Day',
+  festival: 'Festival / Celebration',
+  special_day: 'Special Occasion',
+  other: 'Others',
 };
 
 const MEAL_PHRASE: Record<FoodTimeSlot, string> = {
   MORNING: 'breakfast',
+  REFRESHMENTS: 'refreshments',
   AFTERNOON: 'lunch',
   EVENING: 'dinner',
-  REFRESHMENTS: 'refreshments',
   OUTSIDE_FOOD: 'outside food',
 };
 
-export function mealPhraseForSlot(timeSlot: FoodTimeSlot, slotLabel?: string): string {
+export function mealPhraseForSlot(
+  timeSlot: FoodTimeSlot,
+  slotLabel?: string,
+  outsideMealType?: OutsideMealType,
+): string {
+  if (timeSlot === 'OUTSIDE_FOOD') {
+    return foodMealPhrase(timeSlot, outsideMealType);
+  }
   return MEAL_PHRASE[timeSlot] || (slotLabel || 'a meal').toLowerCase();
 }
 
@@ -27,11 +50,30 @@ export function buildFoodDonationSummary(params: {
   homeName: string;
   timeSlot: FoodTimeSlot;
   slotLabel?: string;
+  outsideMealType?: OutsideMealType;
   details: Pick<FoodDonationDetails, 'occasion_type' | 'occasion_note' | 'donation_for' | 'event_date'>;
 }): string {
-  const meal = mealPhraseForSlot(params.timeSlot, params.slotLabel);
+  const category = getHomeFoodCategory(params.homeName);
+  const occasion = DONOR_TO_STAFF_OCCASION[params.details.occasion_type] || 'Others';
+  const customOccasion =
+    params.details.occasion_type === 'other' ? params.details.occasion_note?.trim() : undefined;
+
+  if (category === 'MI' || category === 'MR') {
+    return buildStaffFoodPurpose({
+      homeName: params.homeName,
+      timeSlot: params.timeSlot,
+      outsideMealType:
+        params.timeSlot === 'OUTSIDE_FOOD' ? params.outsideMealType : undefined,
+      occasion,
+      customOccasion,
+      personName: params.details.donation_for,
+      eventDate: params.details.event_date,
+    });
+  }
+
+  const meal = mealPhraseForSlot(params.timeSlot, params.slotLabel, params.outsideMealType);
   const home = params.homeName || 'our project';
-  const occasion = FOOD_OCCASION_LABELS[params.details.occasion_type] || 'your occasion';
+  const occasionLabel = FOOD_OCCASION_LABELS[params.details.occasion_type] || 'your occasion';
   const forPerson = params.details.donation_for?.trim();
   const eventDate = params.details.event_date
     ? format(new Date(`${params.details.event_date}T12:00:00`), 'dd MMM yyyy')
@@ -41,11 +83,11 @@ export function buildFoodDonationSummary(params: {
   let sentence = `Towards providing ${meal} to ${home}`;
 
   if (forPerson) {
-    sentence += ` on the occasion of ${forPerson}'s ${occasion}`;
+    sentence += ` on the occasion of ${forPerson}'s ${occasionLabel}`;
   } else if (params.details.occasion_type === 'special_day' && remarks) {
     sentence += ` on the occasion of your ${remarks}`;
   } else {
-    sentence += ` on the occasion of your ${occasion}`;
+    sentence += ` on the occasion of your ${occasionLabel}`;
   }
 
   if (eventDate) {
@@ -64,11 +106,12 @@ export function formatFoodPaymentBreakup(params: {
   slotLabel: string;
   homeName: string;
   dateLabel: string;
+  timeSlot?: FoodTimeSlot;
+  outsideMealType?: OutsideMealType;
 }): { label: string; amount: number }[] {
-  return [
-    {
-      label: `${params.slotLabel} meal sponsorship · ${params.homeName} · ${params.dateLabel}`,
-      amount: params.amount,
-    },
-  ];
+  const label =
+    params.timeSlot === 'OUTSIDE_FOOD' && params.outsideMealType
+      ? `${params.slotLabel} (${params.outsideMealType}) meal sponsorship · ${params.homeName} · ${params.dateLabel}`
+      : `${params.slotLabel} meal sponsorship · ${params.homeName} · ${params.dateLabel}`;
+  return [{ label, amount: params.amount }];
 }

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { env } from '../config/env.js';
 
-const BUCKETS = ['home-photos', 'completion-reports', 'need-attachments', 'home-content', 'resident-photos'] as const;
+const BUCKETS = ['home-photos', 'completion-reports', 'need-attachments', 'home-content', 'resident-photos', 'food-slot-attachments'] as const;
 export type BucketName = typeof BUCKETS[number];
 
 export function ensureUploadDirs() {

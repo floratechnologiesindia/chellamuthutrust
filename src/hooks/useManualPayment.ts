@@ -35,6 +35,10 @@ export interface ManualFoodSlotPaymentInput {
   donation_for?: string;
   event_date?: string;
   donor_board_name?: string;
+  meal_type?: string;
+  reason?: string;
+  sponsor_for?: string;
+  donate_on_behalf_of?: string;
 }
 
 export function useManualFoodSlotPayment() {
