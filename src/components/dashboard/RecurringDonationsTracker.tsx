@@ -21,10 +21,15 @@ import {
   Clock,
   User,
   Home,
-  Loader2
+  Loader2,
+  Pause,
+  Play,
+  X,
+  History,
 } from 'lucide-react';
 import { useRecurringDonationsWithPayments } from '@/hooks/useRecurringDonations';
-import { useStaffFoodRecurringPledges } from '@/hooks/useFoodRecurringPledges';
+import { useStaffFoodRecurringPledges, useUpdateFoodRecurringPledgeStatus } from '@/hooks/useFoodRecurringPledges';
+import { useUpdateRecurringDonationStatus, useDonationPaymentHistory } from '@/hooks/useRecurringDonationAdmin';
 import { useCreateNotification } from '@/hooks/useNotifications';
 import { useHomes } from '@/hooks/useHomes';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +56,10 @@ export function RecurringDonationsTracker() {
   );
   const { data: homes = [] } = useHomes();
   const createNotification = useCreateNotification();
+  const updateRecurringStatus = useUpdateRecurringDonationStatus();
+  const updateFoodPledge = useUpdateFoodRecurringPledgeStatus();
+  const [historyDonationId, setHistoryDonationId] = useState<string | null>(null);
+  const { data: paymentHistory = [] } = useDonationPaymentHistory(historyDonationId);
 
   // Calculate payment progress for each donation
   const donationsWithProgress = donations.map(donation => {
@@ -100,7 +109,8 @@ export function RecurringDonationsTracker() {
     const channels: string[] = [];
     const failures: string[] = [];
 
-    const reminderMessage = `Dear ${donation.profiles?.name || 'Donor'}, your recurring donation of ₹${donation.amount_pledged.toLocaleString()} to ${donation.homes?.name || 'the home'} is ${donation.isOverdue ? 'overdue' : 'due soon'}. ${donation.next_due_date ? `Next due date: ${format(new Date(donation.next_due_date), 'MMM dd, yyyy')}.` : ''} Please make your payment at your earliest convenience. Thank you for your generous support!`;
+    const paymentLink = `${window.location.origin}/pay?donationId=${donation.id}`;
+    const reminderMessage = `Dear ${donation.profiles?.name || 'Donor'}, your recurring donation of ₹${donation.amount_pledged.toLocaleString()} to ${donation.homes?.name || 'the home'} is ${donation.isOverdue ? 'overdue' : 'due soon'}. ${donation.next_due_date ? `Next due date: ${format(new Date(donation.next_due_date), 'MMM dd, yyyy')}.` : ''} Please complete your payment using this link: ${paymentLink}. Thank you for your generous support!`;
 
     try {
       // 1. In-app notification
@@ -308,27 +318,64 @@ export function RecurringDonationsTracker() {
                   <Progress value={donation.progressPercent} className="h-1.5" />
                 </div>
 
-                <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">
                     {donation.next_due_date && (
                       <>Next: {format(new Date(donation.next_due_date), 'MMM dd, yyyy')}</>
                     )}
                   </span>
-                  {(donation.isOverdue || donation.isDueSoon) && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setHistoryDonationId(donation.id)}
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      History
+                    </Button>
+                    {donation.status === 'PAUSED' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateRecurringStatus.mutate({ donationId: donation.id, status: 'ACTIVE' })}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateRecurringStatus.mutate({ donationId: donation.id, status: 'PAUSED' })}
+                      >
+                        <Pause className="h-3 w-3 mr-1" />
+                        Pause
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleSendReminder(donation)}
-                      disabled={sendingReminderId === donation.id}
+                      onClick={() => updateRecurringStatus.mutate({ donationId: donation.id, status: 'CANCELLED' })}
                     >
-                      {sendingReminderId === donation.id ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <Bell className="h-3 w-3 mr-1" />
-                      )}
-                      Send Reminder
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
                     </Button>
-                  )}
+                    {(donation.isOverdue || donation.isDueSoon) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSendReminder(donation)}
+                        disabled={sendingReminderId === donation.id}
+                      >
+                        {sendingReminderId === donation.id ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Bell className="h-3 w-3 mr-1" />
+                        )}
+                        Remind
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -393,12 +440,60 @@ export function RecurringDonationsTracker() {
                           {overdue ? ' (overdue)' : ''}
                         </p>
                       </div>
+                      <div className="flex flex-wrap gap-2">
+                        {pledge.status === 'PAUSED' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateFoodPledge.mutate({ id: pledge.id, status: 'ACTIVE' })}
+                          >
+                            Resume
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateFoodPledge.mutate({ id: pledge.id, status: 'PAUSED' })}
+                          >
+                            Pause
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateFoodPledge.mutate({ id: pledge.id, status: 'CANCELLED' })}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
             </div>
           )}
         </div>
+
+        {historyDonationId && (
+          <div className="mt-4 rounded-lg border p-4 bg-muted/20">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium">Payment history</h4>
+              <Button size="sm" variant="ghost" onClick={() => setHistoryDonationId(null)}>Close</Button>
+            </div>
+            {paymentHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {paymentHistory.map((payment: { id: string; payment_date: string; amount: number; payment_reference?: string }) => (
+                  <li key={payment.id} className="flex justify-between gap-2 border-b pb-2">
+                    <span>{format(new Date(payment.payment_date), 'MMM dd, yyyy')}</span>
+                    <span>₹{Number(payment.amount).toLocaleString()}</span>
+                    <span className="text-muted-foreground">{payment.payment_reference || '—'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

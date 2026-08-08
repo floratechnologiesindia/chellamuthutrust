@@ -12,17 +12,25 @@ import {
 } from 'date-fns';
 import { FoodSlotCell } from './FoodSlotCell';
 import { FoodSlot, FoodTimeSlot } from '@/hooks/useFoodSlots';
+import { DONOR_FOOD_CALENDAR_SLOTS } from '@/lib/foodSlotConstants';
 
 interface FoodCalendarGridProps {
   currentDate: Date;
   slots: FoodSlot[];
   onSlotClick: (date: Date, timeSlot: FoodTimeSlot, existingSlot?: FoodSlot) => void;
   compact?: boolean;
+  visibleTimeSlots?: FoodTimeSlot[];
 }
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function FoodCalendarGrid({ currentDate, slots, onSlotClick, compact = false }: FoodCalendarGridProps) {
+export function FoodCalendarGrid({
+  currentDate,
+  slots,
+  onSlotClick,
+  compact = false,
+  visibleTimeSlots = DONOR_FOOD_CALENDAR_SLOTS,
+}: FoodCalendarGridProps) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart);
@@ -60,6 +68,7 @@ export function FoodCalendarGrid({ currentDate, slots, onSlotClick, compact = fa
             slots={getSlotsForDate(day)}
             onSlotClick={onSlotClick}
             compact={compact}
+            visibleTimeSlots={visibleTimeSlots}
           />
         ))}
       </div>

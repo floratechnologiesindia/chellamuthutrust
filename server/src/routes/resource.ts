@@ -155,7 +155,7 @@ export function createResourceRouter(options: ResourceOptions) {
     const doc = await model.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) return res.status(404).json({ error: 'Not found' });
     if (options.name === 'food_slots') {
-      await dedupeFoodSlotCell(doc.home_id, doc.date, doc.time_slot, doc._id);
+      await dedupeFoodSlotCell(doc.home_id, doc.date, doc.time_slot, doc._id, doc.meal_type);
     }
     const apiDoc = toApiDoc(doc as never) as Record<string, unknown>;
     if (options.afterUpdate && existing) {

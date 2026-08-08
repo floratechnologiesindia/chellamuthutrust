@@ -1,6 +1,4 @@
-import { cn } from '@/lib/utils';
-import { pickFoodSlotForTimeSlot, normalizeFoodSlotStatus } from '@/lib/foodSlotUtils';
-import { FOOD_TIME_SLOTS } from '@/lib/foodSlotConstants';
+import { FOOD_TIME_SLOTS, type FoodTimeSlot } from '@/lib/foodSlotConstants';
 import { FoodSlotBadge } from './FoodSlotBadge';
 import { FoodSlot, FoodTimeSlot, FoodSlotStatus, FoodSlotWithDonor } from '@/hooks/useFoodSlots';
 
@@ -12,9 +10,9 @@ interface FoodSlotCellProps {
   slots: (FoodSlot | FoodSlotWithDonor)[];
   onSlotClick: (date: Date, timeSlot: FoodTimeSlot, existingSlot?: FoodSlot) => void;
   compact?: boolean;
+  /** Defaults to all meal columns; donor/staff views pass a filtered list. */
+  visibleTimeSlots?: FoodTimeSlot[];
 }
-
-const timeSlots = FOOD_TIME_SLOTS;
 
 export function FoodSlotCell({
   date,
@@ -24,6 +22,7 @@ export function FoodSlotCell({
   slots,
   onSlotClick,
   compact = false,
+  visibleTimeSlots = FOOD_TIME_SLOTS,
 }: FoodSlotCellProps) {
   const getSlotStatus = (timeSlot: FoodTimeSlot): { status: FoodSlotStatus | 'EMPTY'; slot?: FoodSlot | FoodSlotWithDonor } => {
     const slot = pickFoodSlotForTimeSlot(slots, timeSlot);
@@ -46,7 +45,7 @@ export function FoodSlotCell({
         {date.getDate()}
       </div>
       <div className={cn('flex flex-col gap-1', compact && 'gap-0.5')}>
-        {timeSlots.map((timeSlot) => {
+        {visibleTimeSlots.map((timeSlot) => {
           const { slot } = getSlotStatus(timeSlot);
           return (
             <FoodSlotBadge

@@ -23,6 +23,7 @@ export interface Donor {
   working_sector: 'private' | 'govt' | 'others' | null;
   designation: string | null;
   donor_type: 'indian' | 'nri' | 'foreigner' | null;
+  donor_frequency?: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME' | null;
   religion: string | null;
   referred_by: string | null;
 }
@@ -53,6 +54,7 @@ export interface CreateDonorData {
   working_sector?: 'private' | 'govt' | 'others';
   designation?: string;
   donor_type?: 'indian' | 'nri' | 'foreigner';
+  donor_frequency?: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
   religion?: string;
   referred_by?: string;
 }
@@ -98,6 +100,7 @@ export const useCreateDonor = () => {
           working_sector: data.working_sector,
           designation: data.designation,
           donor_type: data.donor_type,
+          donor_frequency: data.donor_frequency,
           religion: data.religion,
           referred_by: data.referred_by
         },

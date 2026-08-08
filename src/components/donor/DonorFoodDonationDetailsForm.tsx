@@ -22,9 +22,9 @@ export type FoodDonationOccasion =
 export type FoodRecurringFrequency = 'one_time' | 'monthly' | 'annual';
 
 export const RECURRING_FREQUENCY_LABELS: Record<FoodRecurringFrequency, string> = {
-  one_time: 'One-time',
-  monthly: 'Monthly recurring',
-  annual: 'Annual recurring',
+  one_time: 'One-Time Donor',
+  monthly: 'Monthly Donor',
+  annual: 'Annual Donor',
 };
 
 export interface FoodDonationDetails {
@@ -235,7 +235,7 @@ export const DonorFoodDonationDetailsForm = ({
 
       <div className="space-y-2">
         <Label className="text-sm font-medium" style={{ color: '#333' }}>
-          Sponsorship Type *
+          Donor Type *
         </Label>
         <Select
           value={recurringFrequency}

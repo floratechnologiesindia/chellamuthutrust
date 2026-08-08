@@ -1,9 +1,20 @@
 import type { FoodTimeSlot } from '@/hooks/useFoodSlots';
 
-/** Client-required column order: Breakfast → Refreshments → Lunch → Dinner → Outside Food */
+/** Full slot order (pricing, reports, legacy data). */
 export const FOOD_TIME_SLOTS: FoodTimeSlot[] = [
   'MORNING',
   'REFRESHMENTS',
+  'AFTERNOON',
+  'EVENING',
+  'OUTSIDE_FOOD',
+];
+
+/** Donor calendar: breakfast, lunch, dinner only — no outside food or standalone refreshments. */
+export const DONOR_FOOD_CALENDAR_SLOTS: FoodTimeSlot[] = ['MORNING', 'AFTERNOON', 'EVENING'];
+
+/** Staff booking calendar: includes outside food; refreshments are opt-in at payment. */
+export const STAFF_FOOD_CALENDAR_SLOTS: FoodTimeSlot[] = [
+  'MORNING',
   'AFTERNOON',
   'EVENING',
   'OUTSIDE_FOOD',
@@ -43,6 +54,9 @@ export function formatFoodSlotLabel(
   const base = FOOD_TIME_SLOT_LABELS[timeSlot] || timeSlot;
   if (timeSlot === 'OUTSIDE_FOOD' && mealType?.trim()) {
     return `${base} (${mealType.trim()})`;
+  }
+  if (timeSlot === 'REFRESHMENTS' && mealType?.trim()) {
+    return `${base} (with ${mealType.trim().toLowerCase()})`;
   }
   return base;
 }

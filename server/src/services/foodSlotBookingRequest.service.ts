@@ -140,7 +140,7 @@ export async function confirmFoodSlotBooking(
   }
 
   await slot.save();
-  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id);
+  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id, slot.meal_type);
 
   await FoodSlotBookingRequest.updateMany(
     {
@@ -285,7 +285,7 @@ export async function markFoodSlotChequePaid(slotId: string) {
   slot.amount_paid = slot.amount ?? 0;
   slot.cheque_status = 'REALIZED';
   await slot.save();
-  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id);
+  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id, slot.meal_type);
 
   if (slot.donor_id) {
     await notifyDonorBookingConfirmed(slot.donor_id, slot);

@@ -16,6 +16,7 @@ export const WardenTaskBar = lazy(() => import('@/pages/warden/TaskBar'));
 export const NeedsList = lazy(() => import('@/pages/admin/NeedsList'));
 export const NeedForm = lazy(() => import('@/pages/admin/NeedForm'));
 export const NeedDetail = lazy(() => import('@/pages/admin/NeedDetail'));
+export const RecurringDonationsAdmin = lazy(() => import('@/pages/admin/RecurringDonationsAdmin'));
 export const TasksList = lazy(() => import('@/pages/admin/TasksList'));
 export const TaskForm = lazy(() => import('@/pages/admin/TaskForm'));
 export const HomesList = lazy(() => import('@/pages/super-admin/HomesList'));

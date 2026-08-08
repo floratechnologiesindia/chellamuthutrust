@@ -47,7 +47,11 @@ export const Need = mongoose.model<INeed>('Need', needSchema);
 export interface IDonation {
   _id: string; donor_id: string; need_id?: string; trust_id: string; home_id: string; sponsorship_type: string;
   amount_pledged: number; payment_mode: string; in_kind_details?: string; start_date: string; next_due_date?: string;
-  last_paid_date?: string; status: string; occasion_type?: string; occasion_note?: string; created_at: Date; updated_at: Date;
+  last_paid_date?: string; status: string; occasion_type?: string; occasion_note?: string;
+  recurring_frequency?: string; recurring_end_date?: string; paused_at?: string;
+  donor_frequency?: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
+  occasion_reminder_sent_at?: string;
+  created_at: Date; updated_at: Date;
 }
 
 const donationSchema = new Schema<IDonation>({
@@ -55,6 +59,9 @@ const donationSchema = new Schema<IDonation>({
   home_id: { type: String, required: true }, sponsorship_type: { type: String, default: 'ONE_TIME' }, amount_pledged: { type: Number, required: true },
   payment_mode: { type: String, default: 'online' }, in_kind_details: String, start_date: { type: String, required: true },
   next_due_date: String, last_paid_date: String, status: { type: String, default: 'PLEDGED' }, occasion_type: String, occasion_note: String,
+  recurring_frequency: String, recurring_end_date: String, paused_at: String,
+  donor_frequency: { type: String, enum: ['MONTHLY', 'ANNUAL', 'ONE_TIME'] },
+  occasion_reminder_sent_at: String,
 }, timestamps);
 
 export const Donation = mongoose.model<IDonation>('Donation', donationSchema);

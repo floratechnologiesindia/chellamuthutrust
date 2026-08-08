@@ -18,6 +18,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { useTrusts, useReportHomes } from '@/hooks/useReportData';
 import { useKindDonations, useCreateKindDonation, useDeleteKindDonation, useKindDonationStats } from '@/hooks/useKindDonations';
+import {
+  DonorClassificationFields,
+  emptyDonorClassification,
+  type DonorClassificationValues,
+} from '@/components/donor/DonorClassificationFields';
 
 const ITEM_TYPES = [
   'Food Items',
@@ -47,6 +52,8 @@ export default function KindDonations() {
   const { data: stats } = useKindDonationStats(trustId);
   const createMutation = useCreateKindDonation();
   const deleteMutation = useDeleteKindDonation();
+
+  const [donorInfo, setDonorInfo] = useState<DonorClassificationValues>(emptyDonorClassification());
 
   const [formData, setFormData] = useState({
     trust_id: '',
@@ -100,7 +107,12 @@ export default function KindDonations() {
       await createMutation.mutateAsync({
         trust_id: formData.trust_id,
         home_id: formData.home_id,
-        donor_name: formData.donor_name || null,
+        donor_name: donorInfo.donor_name || formData.donor_name || null,
+        donor_address: donorInfo.donor_address || null,
+        donor_pan: donorInfo.donor_pan || null,
+        donor_phone: donorInfo.donor_phone || null,
+        donor_email: donorInfo.donor_email || null,
+        donor_frequency: donorInfo.donor_frequency,
         item_type: formData.item_type,
         item_description: formData.item_description || null,
         quantity: formData.quantity ? parseInt(formData.quantity) : 1,
@@ -110,6 +122,7 @@ export default function KindDonations() {
       });
       toast.success('Kind donation recorded successfully');
       setIsDialogOpen(false);
+      setDonorInfo(emptyDonorClassification());
       setFormData({
         trust_id: '',
         home_id: '',
@@ -208,14 +221,19 @@ export default function KindDonations() {
                       </Select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Donor Name</Label>
-                    <Input
-                      value={formData.donor_name}
-                      onChange={(e) => setFormData({ ...formData, donor_name: e.target.value })}
-                      placeholder="Enter donor name"
-                    />
-                  </div>
+                  <DonorClassificationFields
+                    values={{
+                      ...donorInfo,
+                      donor_name: donorInfo.donor_name || formData.donor_name,
+                    }}
+                    onChange={(patch) => {
+                      setDonorInfo((prev) => ({ ...prev, ...patch }));
+                      if (patch.donor_name !== undefined) {
+                        setFormData((prev) => ({ ...prev, donor_name: patch.donor_name || '' }));
+                      }
+                    }}
+                    className="border rounded-lg p-4 bg-muted/20"
+                  />
                   <div className="space-y-2">
                     <Label>Item Type *</Label>
                     <Select value={formData.item_type} onValueChange={(v) => setFormData({ ...formData, item_type: v })}>

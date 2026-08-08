@@ -32,6 +32,7 @@ export const AppRoutes = () => (
     <Route path="/admin/needs/new" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'warden']}><P.NeedForm /></ProtectedRoute>} />
     <Route path="/admin/needs/:needId/edit" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'warden']}><P.NeedForm /></ProtectedRoute>} />
     <Route path="/admin/needs/:needId" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'warden']}><P.NeedDetail /></ProtectedRoute>} />
+    <Route path="/admin/recurring-donations" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.RecurringDonationsAdmin /></ProtectedRoute>} />
     <Route path="/admin/tasks" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.TasksList /></ProtectedRoute>} />
     <Route path="/admin/tasks/new" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.TaskForm /></ProtectedRoute>} />
     <Route path="/admin/tasks/:taskId/edit" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.TaskForm /></ProtectedRoute>} />
@@ -66,11 +67,12 @@ export const AppRoutes = () => (
     <Route path="/super-admin/donors/:donorId" element={<ProtectedRoute allowedRoles={['super_admin']}><P.DonorPreview /></ProtectedRoute>} />
     <Route path="/super-admin/donors/:donorId/edit" element={<ProtectedRoute allowedRoles={['super_admin']}><P.DonorForm /></ProtectedRoute>} />
     <Route path="/super-admin/task-dashboard" element={<ProtectedRoute allowedRoles={['super_admin']}><P.TaskDashboard /></ProtectedRoute>} />
-    <Route path="/super-admin/settings" element={<ProtectedRoute allowedRoles={['super_admin']}><P.Settings /></ProtectedRoute>} />
+    <Route path="/super-admin/settings" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.Settings /></ProtectedRoute>} />
     <Route path="/super-admin/staff" element={<ProtectedRoute allowedRoles={['super_admin']}><P.StaffList /></ProtectedRoute>} />
     <Route path="/super-admin/staff/new" element={<ProtectedRoute allowedRoles={['super_admin']}><P.StaffForm /></ProtectedRoute>} />
     <Route path="/super-admin/staff/:staffId/edit" element={<ProtectedRoute allowedRoles={['super_admin']}><P.StaffForm /></ProtectedRoute>} />
     <Route path="/super-admin/booking" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><P.BookingPlatform /></ProtectedRoute>} />
+    <Route path="/food-calendar" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'warden']}><P.FoodCalendar /></ProtectedRoute>} />
     <Route path="/super-admin/trusts" element={<ProtectedRoute allowedRoles={['super_admin']}><P.TrustsList /></ProtectedRoute>} />
     <Route path="/super-admin/trusts/new" element={<ProtectedRoute allowedRoles={['super_admin']}><P.TrustForm /></ProtectedRoute>} />
 

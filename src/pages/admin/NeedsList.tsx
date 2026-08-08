@@ -60,6 +60,7 @@ import {
 import { NeedsCalendar } from '@/components/needs/NeedsCalendar';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
+import { buildNeedApprovalUpdate } from '@/lib/needApprovalUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useNeeds, useUpdateNeed } from '@/hooks/useNeeds';
@@ -192,7 +193,10 @@ const NeedsList = () => {
 
   const handleApprove = async (needId: string) => {
     try {
-      await updateNeed.mutateAsync({ id: needId, approval_status: 'APPROVED' });
+      await updateNeed.mutateAsync({
+        id: needId,
+        ...buildNeedApprovalUpdate('APPROVED', { approvedBy: user?.name || user?.email }),
+      });
       toast.success('Requirement approved');
     } catch (error) {
       toast.error('Failed to approve requirement');
@@ -201,7 +205,10 @@ const NeedsList = () => {
 
   const handleReject = async (needId: string) => {
     try {
-      await updateNeed.mutateAsync({ id: needId, approval_status: 'REJECTED' });
+      await updateNeed.mutateAsync({
+        id: needId,
+        ...buildNeedApprovalUpdate('REJECTED'),
+      });
       toast.success('Requirement rejected');
     } catch (error) {
       toast.error('Failed to reject requirement');
@@ -667,7 +674,7 @@ const NeedsList = () => {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
-                                {user?.role === 'super_admin' && (
+                                {(user?.role === 'super_admin' || user?.role === 'admin') && (
                                   <>
                                     <DropdownMenuSeparator />
                                     {(need as any).approval_status !== 'APPROVED' && (

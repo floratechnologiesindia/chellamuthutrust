@@ -21,10 +21,11 @@ import { mergeFoodSlotsByCell } from '@/lib/foodSlotUtils';
 import {
   FOOD_TIME_SLOTS,
   FOOD_TIME_SLOT_SHORT_LABELS,
+  STAFF_FOOD_CALENDAR_SLOTS,
 } from '@/lib/foodSlotConstants';
 
 const TIME_SLOT_LABELS = FOOD_TIME_SLOT_SHORT_LABELS;
-const TIME_SLOTS = FOOD_TIME_SLOTS;
+const TIME_SLOTS = STAFF_FOOD_CALENDAR_SLOTS;
 
 interface Trust {
   id: string;

@@ -28,6 +28,7 @@ export interface IUser {
   working_sector?: 'private' | 'govt' | 'others';
   designation?: string;
   donor_type?: 'indian' | 'nri' | 'foreigner';
+  donor_frequency?: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
   religion?: string;
   referred_by?: string;
   email_verified?: boolean;
@@ -67,6 +68,7 @@ const userSchema = new Schema<IUser>(
     working_sector: { type: String, enum: ['private', 'govt', 'others'] },
     designation: String,
     donor_type: { type: String, enum: ['indian', 'nri', 'foreigner'] },
+    donor_frequency: { type: String, enum: ['MONTHLY', 'ANNUAL', 'ONE_TIME'] },
     religion: String,
     referred_by: String,
     email_verified: { type: Boolean, default: false },

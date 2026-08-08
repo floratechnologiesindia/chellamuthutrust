@@ -19,6 +19,8 @@ interface DonorFoodDonationPreviewProps {
   timeSlot: FoodTimeSlot;
   date: Date;
   amount: number;
+  mealAmount?: number;
+  refreshmentAmount?: number;
   onBack: () => void;
   onConfirm: () => void;
   className?: string;
@@ -44,6 +46,8 @@ export const DonorFoodDonationPreview = ({
   timeSlot,
   date,
   amount,
+  mealAmount,
+  refreshmentAmount = 0,
   onBack,
   onConfirm,
   className,
@@ -66,6 +70,8 @@ export const DonorFoodDonationPreview = ({
     dateLabel,
     timeSlot,
     outsideMealType,
+    mealAmount,
+    refreshmentAmount,
   });
   const showRemarks =
     Boolean(details.occasion_note) &&

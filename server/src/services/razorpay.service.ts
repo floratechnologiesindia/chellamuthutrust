@@ -34,6 +34,7 @@ export interface RazorpayOrderNotes {
   reason?: string;
   sponsor_for?: string;
   donate_on_behalf_of?: string;
+  include_refreshment?: string;
 }
 
 function noteValue(notes: Record<string, unknown> | undefined, key: string): string {
@@ -98,6 +99,7 @@ export async function createRazorpayOrder(
         reason: (notes.reason || '').slice(0, 250),
         sponsor_for: (notes.sponsor_for || '').slice(0, 100),
         donate_on_behalf_of: (notes.donate_on_behalf_of || '').slice(0, 100),
+        include_refreshment: notes.include_refreshment ? 'true' : '',
       },
     }),
   });
@@ -168,6 +170,7 @@ export async function fulfillRazorpayCapturedPayment(params: {
   const reason = noteValue(notes, 'reason') || undefined;
   const sponsorFor = noteValue(notes, 'sponsor_for') || undefined;
   const donateOnBehalfOf = noteValue(notes, 'donate_on_behalf_of') || undefined;
+  const includeRefreshment = noteValue(notes, 'include_refreshment') === 'true';
   const amountRupees = amountPaise / 100;
   const payDate = new Date().toISOString().split('T')[0];
 
@@ -245,6 +248,7 @@ export async function fulfillRazorpayCapturedPayment(params: {
       reason,
       sponsor_for: sponsorFor,
       donate_on_behalf_of: donateOnBehalfOf,
+      include_refreshment: includeRefreshment,
     });
     return {
       payment_id: paymentId,
@@ -284,6 +288,7 @@ export async function verifyRazorpayPayment(
     reason?: string;
     sponsor_for?: string;
     donate_on_behalf_of?: string;
+    include_refreshment?: string;
   },
   donorId?: string,
 ) {
@@ -316,6 +321,7 @@ export async function verifyRazorpayPayment(
       reason: data.reason || '',
       sponsor_for: data.sponsor_for || '',
       donate_on_behalf_of: data.donate_on_behalf_of || '',
+      include_refreshment: data.include_refreshment || '',
     },
     donorIdFallback: donorId,
   });

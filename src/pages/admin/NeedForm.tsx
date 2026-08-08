@@ -33,6 +33,7 @@ import { useActiveProject } from '@/hooks/useActiveProject';
 import { FoodDistributionTableView } from '@/components/food-calendar/FoodDistributionTableView';
 import { NeedAttachmentUpload } from '@/components/needs/NeedAttachmentUpload';
 import { CorpusFundForm } from '@/components/corpus-fund/CorpusFundForm';
+import { buildNeedApprovalUpdate } from '@/lib/needApprovalUtils';
 import type { Database } from '@/integrations/supabase/types';
 
 type HelpMode = Database['public']['Enums']['help_mode'];
@@ -75,6 +76,8 @@ const needSchema = z.object({
   // Approval fields (for editing)
   approval_status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
   approval_notes: z.string().optional(),
+  approved_at: z.date().optional(),
+  approved_by: z.string().optional(),
 });
 
 type NeedFormData = z.infer<typeof needSchema>;
@@ -86,6 +89,7 @@ const NeedForm = () => {
   const { homeId, assignedProjectIds } = useActiveProject();
   const isEditing = !!needId;
   const isWarden = user?.role === 'warden';
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const needsListPath = isWarden ? '/warden/needs' : '/admin/needs';
   
   const [formData, setFormData] = useState<NeedFormData>({
@@ -122,10 +126,13 @@ const NeedForm = () => {
     // Approval fields
     approval_status: 'PENDING' as const,
     approval_notes: '',
+    approved_at: undefined as Date | undefined,
+    approved_by: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [dateOpen, setDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
+  const [approvalDateOpen, setApprovalDateOpen] = useState(false);
 
   // Fetch data from Supabase
   const { data: homes = [] } = useHomes();
@@ -184,6 +191,10 @@ const NeedForm = () => {
         // Approval fields
         approval_status: (existingNeed as any).approval_status || 'PENDING',
         approval_notes: (existingNeed as any).approval_notes || '',
+        approved_at: (existingNeed as any).approved_at
+          ? new Date((existingNeed as any).approved_at)
+          : undefined,
+        approved_by: (existingNeed as any).approved_by || '',
       });
     }
   }, [isEditing, existingNeed]);
@@ -264,6 +275,13 @@ const NeedForm = () => {
           toast.error('Required amount (₹) is required');
           return;
         }
+        const approvalUpdate = isAdmin
+          ? buildNeedApprovalUpdate(formData.approval_status || 'PENDING', {
+              approvedBy: formData.approved_by || user?.name || user?.email,
+              approvedAt: formData.approved_at,
+            })
+          : {};
+
         await updateNeed.mutateAsync({
           id: needId,
           quantity: formData.quantity,
@@ -271,8 +289,8 @@ const NeedForm = () => {
           description: formData.description,
           max_sponsors_allowed: formData.max_sponsors_allowed,
           fulfillment_details: formData.fulfillment_details || null,
-          approval_status: formData.approval_status,
           approval_notes: formData.approval_notes || null,
+          ...approvalUpdate,
           donation_mode: formData.donation_mode as DonationMode,
           required_amount: formData.donation_mode !== 'PRODUCT_ONLY' ? formData.required_amount : 0,
           required_product_qty: formData.donation_mode !== 'MONEY_ONLY' ? formData.required_product_qty : 0,
@@ -925,13 +943,13 @@ const NeedForm = () => {
               </CardContent>
             </Card>
 
-            {/* Fulfillment Details (Needs Addressed) - Only show when editing */}
-            {isEditing && (
+            {/* Approval — admin only when editing */}
+            {isEditing && isAdmin && (
               <Card>
                 <CardHeader>
                   <CardTitle>Approval Status</CardTitle>
                   <CardDescription>
-                    Set the approval status for this requirement
+                    Review and publish this requirement to the donor campaign page
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -958,6 +976,50 @@ const NeedForm = () => {
                       </div>
                     </RadioGroup>
                   </div>
+
+                  {formData.approval_status === 'APPROVED' && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Requirement Approved Date</Label>
+                        <Popover open={approvalDateOpen} onOpenChange={setApprovalDateOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !formData.approved_at && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.approved_at
+                                ? format(formData.approved_at, "PPP")
+                                : "Select approval date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={formData.approved_at}
+                              onSelect={(date) => {
+                                setFormData(prev => ({ ...prev, approved_at: date }));
+                                setApprovalDateOpen(false);
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="approved_by">Requirement Approved By</Label>
+                        <Input
+                          id="approved_by"
+                          placeholder="Name and designation"
+                          value={formData.approved_by}
+                          onChange={(e) => setFormData(prev => ({ ...prev, approved_by: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="approval_notes">Approval Notes</Label>

@@ -1498,6 +1498,7 @@ export type Database = {
       donation_status:
         | "PLEDGED"
         | "ACTIVE"
+        | "PAUSED"
         | "COMPLETED"
         | "CANCELLED"
         | "OVERDUE"
@@ -1671,6 +1672,7 @@ export const Constants = {
       donation_status: [
         "PLEDGED",
         "ACTIVE",
+        "PAUSED",
         "COMPLETED",
         "CANCELLED",
         "OVERDUE",

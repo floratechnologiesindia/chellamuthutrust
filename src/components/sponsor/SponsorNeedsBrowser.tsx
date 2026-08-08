@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { NeedCard } from '@/components/needs/NeedCard';
+import { CampaignCard } from '@/components/sponsor/CampaignCard';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -64,6 +65,8 @@ export const SponsorNeedsBrowser = ({
       needs.filter((need) => {
         if (need.status === 'COMPLETED' || need.status === 'CANCELLED') return false;
         if (excludeFoodCategory && foodCategoryIds.has(need.category_id)) return false;
+        // Donor-facing lists only show admin-approved campaigns
+        if (need.approval_status !== 'APPROVED') return false;
         return true;
       }),
     [needs, excludeFoodCategory, foodCategoryIds],
@@ -110,31 +113,113 @@ export const SponsorNeedsBrowser = ({
       <div className={embedded ? '' : 'container py-8'}>
         <Skeleton className="h-10 w-64 mb-2" />
         <Skeleton className="h-5 w-96 mb-8" />
-        <Skeleton className="h-8 w-48 mb-3" />
-        <div className="flex gap-2 mb-6">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-32 w-28" />
-          ))}
-        </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-80" />
+        <div className="grid sm:grid-cols-2 gap-6">
+          {[...Array(embedded ? 4 : 6)].map((_, i) => (
+            <Skeleton key={i} className={embedded ? 'h-96' : 'h-80'} />
           ))}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className={embedded ? '' : 'container py-8'}>
-      {!embedded && (
-        <div className="mb-8">
-          <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Sponsor a Need</h1>
-          <p className="text-muted-foreground">
-            Filter by category or project and find a need to sponsor
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border bg-gradient-to-r from-primary/10 via-background to-primary/5 p-6">
+          <p className="text-sm font-medium text-primary">Verified campaigns</p>
+          <h3 className="mt-1 font-display text-2xl font-bold">Support a cause that matters</h3>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Each campaign is reviewed by our team before it appears here. Choose one below to contribute.
           </p>
         </div>
-      )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={cn(
+              'rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+              selectedCategory === 'all'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background hover:bg-muted',
+            )}
+          >
+            All ({availableNeeds.length})
+          </button>
+          {visibleCategories.map((category) => {
+            const count = categoryNeedCounts[category.id] || 0;
+            if (count === 0) return null;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setSelectedCategory(category.id)}
+                className={cn(
+                  'rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                  selectedCategory === category.id
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background hover:bg-muted',
+                )}
+              >
+                {category.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredNeeds.length} campaign{filteredNeeds.length !== 1 ? 's' : ''} available
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Select value={selectedHome} onValueChange={setSelectedHome}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {homes.map((home) => (
+                  <SelectItem key={home.id} value={home.id}>
+                    {home.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {filteredNeeds.length > 0 ? (
+          <div className="grid gap-6 sm:grid-cols-2">
+            {filteredNeeds.map((need) => (
+              <CampaignCard key={need.id} need={need} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed py-12 text-center">
+            <Heart className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">No campaigns right now</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Check back soon or try another category.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-8">
+      <div className="mb-8">
+        <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">Campaigns</h1>
+        <p className="text-muted-foreground">
+          Browse verified campaigns and support the causes that matter to you
+        </p>
+      </div>
 
       {/* Category filter bar */}
       <div className="mb-6">
@@ -303,7 +388,7 @@ export const SponsorNeedsBrowser = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-muted-foreground">
-              {filteredNeeds.length} need{filteredNeeds.length !== 1 ? 's' : ''} found
+              {filteredNeeds.length} campaign{filteredNeeds.length !== 1 ? 's' : ''} found
               {selectedCategory !== 'all' && (
                 <span className="ml-1">
                   in{' '}
@@ -324,7 +409,7 @@ export const SponsorNeedsBrowser = ({
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg">
               <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-semibold text-lg mb-2">No requirements found</h3>
+              <h3 className="font-semibold text-lg mb-2">No campaigns found</h3>
               <p className="text-muted-foreground mb-4">
                 Try adjusting your filters or browsing another category
               </p>

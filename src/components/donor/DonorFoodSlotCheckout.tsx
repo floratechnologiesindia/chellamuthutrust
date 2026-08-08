@@ -24,6 +24,12 @@ import { toast } from 'sonner';
 import { buildFoodDonationSummary } from '@/lib/foodDonationSummary';
 import { FOOD_OCCASION_LABELS } from '@/lib/foodDonationSummary';
 import { formatFoodSlotLabel } from '@/lib/foodSlotConstants';
+import { FoodRefreshmentOptIn } from '@/components/food-calendar/FoodRefreshmentOptIn';
+import {
+  canOfferRefreshmentOptIn,
+  isRefreshmentOptInAvailable,
+  refreshmentMealPairForSlot,
+} from '@/lib/foodRefreshmentOptIn';
 
 type CheckoutStep = 'otp' | 'details' | 'preview' | 'payment' | 'success' | 'failure';
 
@@ -40,6 +46,8 @@ interface DonorFoodSlotCheckoutProps {
   /** Opens Razorpay from parent (outside dialog) to avoid overlay blocking clicks. */
   onRazorpayPay?: (request: FoodSlotRazorpayPayRequest) => void;
   razorpayProcessing?: boolean;
+  /** All slots for the selected home/month — used to check refreshment availability. */
+  homeSlots?: FoodSlot[];
 }
 
 function buildOccasionNote(details: FoodDonationDetails): string {
@@ -62,6 +70,7 @@ export const DonorFoodSlotCheckout = ({
   onFinished,
   onRazorpayPay,
   razorpayProcessing = false,
+  homeSlots = [],
 }: DonorFoodSlotCheckoutProps) => {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
@@ -74,12 +83,21 @@ export const DonorFoodSlotCheckout = ({
   const [isNewDonor, setIsNewDonor] = useState(false);
   const [donationDetails, setDonationDetails] = useState<FoodDonationDetails | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
+  const [includeRefreshment, setIncludeRefreshment] = useState(false);
 
   const profileId = activeDonorId || user?.id;
   const { data: donorProfile } = useDonor(profileId);
 
-  const amount = existingSlot?.amount ?? priceMap[timeSlot] ?? 75;
+  const mealAmount = existingSlot?.amount ?? priceMap[timeSlot] ?? 75;
+  const refreshmentPrice = priceMap.REFRESHMENTS ?? 30;
   const dateStr = format(date, 'yyyy-MM-dd');
+  const refreshmentMealPair = refreshmentMealPairForSlot(timeSlot);
+  const refreshmentAvailable =
+    refreshmentMealPair != null &&
+    isRefreshmentOptInAvailable(homeSlots, homeId, dateStr, refreshmentMealPair);
+  const showRefreshmentOptIn = canOfferRefreshmentOptIn(timeSlot) && refreshmentAvailable;
+  const amount =
+    mealAmount + (includeRefreshment && showRefreshmentOptIn ? refreshmentPrice : 0);
   const displaySlotLabel = formatFoodSlotLabel(
     timeSlot,
     existingSlot?.meal_type || donationDetails?.outside_meal_type,
@@ -135,6 +153,7 @@ export const DonorFoodSlotCheckout = ({
       ? FOOD_OCCASION_LABELS[donationDetails.occasion_type]
       : undefined,
     donate_on_behalf_of: donationDetails?.donation_for,
+    include_refreshment: includeRefreshment && showRefreshmentOptIn,
   };
 
   const refreshFoodSlots = async () => {
@@ -224,6 +243,7 @@ export const DonorFoodSlotCheckout = ({
       }),
       sponsor_for: FOOD_OCCASION_LABELS[donationDetails.occasion_type],
       donate_on_behalf_of: donationDetails.donation_for,
+      include_refreshment: includeRefreshment && showRefreshmentOptIn,
     });
   };
 
@@ -293,16 +313,28 @@ export const DonorFoodSlotCheckout = ({
 
   if (step === 'preview' && donationDetails) {
     return (
-      <DonorFoodDonationPreview
-        details={donationDetails}
-        homeName={homeName}
-        slotLabel={slotLabel}
-        timeSlot={timeSlot}
-        date={date}
-        amount={amount}
-        onBack={() => setStep('details')}
-        onConfirm={() => setStep('payment')}
-      />
+      <div className="space-y-4">
+        {showRefreshmentOptIn && (
+          <FoodRefreshmentOptIn
+            timeSlot={timeSlot}
+            checked={includeRefreshment}
+            onCheckedChange={setIncludeRefreshment}
+            price={refreshmentPrice}
+          />
+        )}
+        <DonorFoodDonationPreview
+          details={donationDetails}
+          homeName={homeName}
+          slotLabel={slotLabel}
+          timeSlot={timeSlot}
+          date={date}
+          amount={amount}
+          mealAmount={mealAmount}
+          refreshmentAmount={includeRefreshment && showRefreshmentOptIn ? refreshmentPrice : 0}
+          onBack={() => setStep('details')}
+          onConfirm={() => setStep('payment')}
+        />
+      </div>
     );
   }
 
@@ -317,6 +349,15 @@ export const DonorFoodSlotCheckout = ({
         >
           ← Back to preview
         </button>
+        {showRefreshmentOptIn && (
+          <FoodRefreshmentOptIn
+            timeSlot={timeSlot}
+            checked={includeRefreshment}
+            onCheckedChange={setIncludeRefreshment}
+            price={refreshmentPrice}
+            idPrefix="payment"
+          />
+        )}
         {isRazorpayEnabled() && onRazorpayPay ? (
           <DonorRazorpayPayment
             amount={amount}

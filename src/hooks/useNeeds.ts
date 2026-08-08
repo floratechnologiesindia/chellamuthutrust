@@ -197,6 +197,7 @@ export function useCreateNeed() {
           ...params,
           status: 'OPEN',
           current_sponsors_count: 0,
+          approval_status: 'PENDING',
           created_by: user?.id,
         })
         .select()
@@ -232,6 +233,8 @@ export interface UpdateNeedParams {
   // Approval fields
   approval_status?: ApprovalStatus;
   approval_notes?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
   fulfillment_details?: string | null;
 }
 

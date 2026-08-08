@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { buildNeedApprovalUpdate } from '@/lib/needApprovalUtils';
 import { useNeed, useUpdateNeed } from '@/hooks/useNeeds';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,7 +93,10 @@ const NeedDetail = () => {
   const handleApprove = async () => {
     if (!needId) return;
     try {
-      await updateNeed.mutateAsync({ id: needId, approval_status: 'APPROVED' });
+      await updateNeed.mutateAsync({
+        id: needId,
+        ...buildNeedApprovalUpdate('APPROVED', { approvedBy: user?.name || user?.email }),
+      });
       toast.success('Requirement approved');
     } catch (error) {
       toast.error('Failed to approve requirement');
@@ -102,7 +106,10 @@ const NeedDetail = () => {
   const handleReject = async () => {
     if (!needId) return;
     try {
-      await updateNeed.mutateAsync({ id: needId, approval_status: 'REJECTED' });
+      await updateNeed.mutateAsync({
+        id: needId,
+        ...buildNeedApprovalUpdate('REJECTED'),
+      });
       toast.success('Requirement rejected');
     } catch (error) {
       toast.error('Failed to reject requirement');
@@ -416,7 +423,7 @@ const NeedDetail = () => {
                     {needData.approval_status === 'APPROVED' ? 'Approved' : 'Updated'} on {format(new Date(needData.approved_at), 'PPp')}
                   </div>
                 )}
-                {user?.role === 'super_admin' && needData.approval_status !== 'APPROVED' && needData.approval_status !== 'REJECTED' && (
+                {(user?.role === 'super_admin' || user?.role === 'admin') && needData.approval_status !== 'APPROVED' && needData.approval_status !== 'REJECTED' && (
                   <div className="flex gap-2 pt-2">
                     <Button size="sm" onClick={handleApprove} className="flex-1">
                       <CheckCircle2 className="h-4 w-4 mr-1" />

@@ -1,7 +1,7 @@
 import { Donation, DonationPayment } from '../models/Operations.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { toApiDoc } from '../utils/serializers.js';
-import { bookSlotOnPayment, applyDonorFoodSlotPayment, pickCanonicalFoodSlot, slotIsBooked } from './foodSlot.service.js';
+import { bookSlotOnPayment, applyDonorFoodSlotPayment, pickCanonicalFoodSlot, slotIsBooked, bookRefreshmentSlotOnPayment, getRefreshmentSlotPrice, siblingQueryForCell } from './foodSlot.service.js';
 import { FoodSlot } from '../models/Finance.js';
 import { Home } from '../models/Core.js';
 import {
@@ -17,7 +17,11 @@ export async function completeDonationPayment(donationId: string, donorId: strin
   const donation = await Donation.findById(donationId);
   if (!donation) throw new AppError('Donation not found', 404);
   if (donation.donor_id !== donorId) throw new AppError('Not authorized for this donation', 403);
-  if (donation.status === 'ACTIVE' || donation.status === 'COMPLETED') {
+  if (donation.status === 'COMPLETED' || donation.status === 'CANCELLED') {
+    return { success: true, alreadyPaid: true, donation };
+  }
+  const isRecurring = String(donation.sponsorship_type).toUpperCase() === 'RECURRING';
+  if (!isRecurring && donation.status === 'ACTIVE') {
     return { success: true, alreadyPaid: true, donation };
   }
 
@@ -33,6 +37,11 @@ export async function completeDonationPayment(donationId: string, donorId: strin
   donation.status = 'ACTIVE';
   donation.last_paid_date = today;
   await donation.save();
+
+  if (isRecurring) {
+    const { advanceRecurringDonationSchedule } = await import('./recurringDonation.service.js');
+    await advanceRecurringDonationSchedule(donationId, today);
+  }
 
   const issued = await issueDonationPaymentReceipt({
     donorId,
@@ -91,6 +100,7 @@ export interface CompleteFoodSlotPaymentInput {
   reason?: string;
   sponsor_for?: string;
   donate_on_behalf_of?: string;
+  include_refreshment?: boolean;
 }
 
 /** Book slot on payment, or apply balance payment on an already-booked slot. */
@@ -115,11 +125,46 @@ export async function completeFoodSlotPayment(
     reason,
     sponsor_for: sponsorFor,
     donate_on_behalf_of: donateOnBehalfOf,
+    include_refreshment: includeRefreshment,
   } = input;
 
   if (!homeId || !trustId || !date || !timeSlot || amount == null) {
     throw new AppError('home_id, trust_id, date, time_slot, and amount are required', 400);
   }
+
+  const refreshmentMealType =
+    includeRefreshment && (timeSlot === 'MORNING' || timeSlot === 'AFTERNOON')
+      ? (timeSlot === 'MORNING' ? 'Breakfast' : 'Lunch')
+      : null;
+  let refreshmentAmount = 0;
+  let mainAmount = amount;
+  if (refreshmentMealType) {
+    refreshmentAmount = await getRefreshmentSlotPrice();
+    mainAmount = Math.max(0, amount - refreshmentAmount);
+    if (mainAmount <= 0) {
+      mainAmount = amount;
+      refreshmentAmount = 0;
+    }
+  }
+
+  const bookRefreshmentIfNeeded = async () => {
+    if (!refreshmentMealType || refreshmentAmount <= 0) return null;
+    return bookRefreshmentSlotOnPayment({
+      donorId,
+      homeId,
+      trustId,
+      date,
+      refreshmentMealType,
+      amount: refreshmentAmount,
+      occasionType,
+      occasionNote,
+      donationFor,
+      eventDate,
+      reason,
+      sponsorFor,
+      donateOnBehalfOf,
+    });
+  };
 
   const { parseFoodRecurringFrequency, createFoodRecurringPledge } = await import(
     './foodRecurringPledge.service.js'
@@ -160,7 +205,7 @@ export async function completeFoodSlotPayment(
     }
   }
 
-  const siblings = await FoodSlot.find({ home_id: homeId, date, time_slot: timeSlot });
+  const siblings = await FoodSlot.find(siblingQueryForCell(homeId, date, timeSlot, mealType));
   const bookedForDonor = pickCanonicalFoodSlot(
     siblings.filter((s) => slotIsBooked(s) && s.donor_id === donorId),
   );
@@ -181,7 +226,7 @@ export async function completeFoodSlotPayment(
     trustId,
     date,
     timeSlot,
-    amount,
+    amount: mainAmount,
     foodSlotId,
     occasionType,
     occasionNote,
@@ -192,6 +237,8 @@ export async function completeFoodSlotPayment(
     sponsorFor,
     donateOnBehalfOf,
   });
+
+  await bookRefreshmentIfNeeded();
 
   await notifyDonorFoodSlotPaymentSuccess(donorId, slot, amount);
   const pledge = await attachPledge(slot);

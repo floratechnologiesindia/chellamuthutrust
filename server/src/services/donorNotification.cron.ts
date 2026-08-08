@@ -143,6 +143,12 @@ async function runDailyJobs() {
     await expireStaleBookingRequests();
     await runRecurringReminders();
     await runFoodRecurringReminders();
+    const { processRecurringDonationSchedules } = await import('./recurringDonation.service.js');
+    const { processFoodRecurringSchedules } = await import('./foodRecurringPledge.service.js');
+    const { runOccasionReminders } = await import('./occasionReminder.service.js');
+    await processRecurringDonationSchedules();
+    await processFoodRecurringSchedules();
+    await runOccasionReminders();
     await runCalendarReminders();
     await runAnniversaryNotifications();
     await runTaxSummaryNotifications();

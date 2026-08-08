@@ -46,10 +46,10 @@ export const RELIGIONS = [
 ];
 
 export const FOOD_SLOT_PRICING = [
-  { time_slot: 'MORNING', label: 'Breakfast', price: 50, description: 'Morning breakfast sponsorship' },
-  { time_slot: 'AFTERNOON', label: 'Lunch', price: 75, description: 'Afternoon lunch sponsorship' },
-  { time_slot: 'EVENING', label: 'Dinner', price: 75, description: 'Evening dinner sponsorship' },
-  { time_slot: 'REFRESHMENTS', label: 'Refreshments', price: 30, description: 'Refreshments and snacks sponsorship' },
+  { time_slot: 'MORNING', label: 'Breakfast', price: 2500, description: 'Morning breakfast sponsorship' },
+  { time_slot: 'AFTERNOON', label: 'Lunch', price: 4500, description: 'Afternoon lunch sponsorship' },
+  { time_slot: 'EVENING', label: 'Dinner', price: 2500, description: 'Evening dinner sponsorship' },
+  { time_slot: 'REFRESHMENTS', label: 'Refreshments', price: 1500, description: 'Refreshments with breakfast or lunch' },
   { time_slot: 'OUTSIDE_FOOD', label: 'Outside Food', price: 0, description: 'Donor brings and serves food directly (tracked, no fee)' },
 ];
 

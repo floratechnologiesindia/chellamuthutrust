@@ -160,6 +160,15 @@ app.use('/api/kind_donations', createResourceRouter({
       const { recalculateNeedProgress } = await import('./services/needProgress.service.js');
       await recalculateNeedProgress(String(doc.need_id));
     }
+    const status = String(doc.status || '').toUpperCase();
+    if (['RECEIVED', 'VERIFIED'].includes(status) && !doc.thank_you_sent_at) {
+      try {
+        const { deliverKindDonationThankYou } = await import('./services/kindDonationThankYou.service.js');
+        await deliverKindDonationThankYou(String(doc._id));
+      } catch (err) {
+        console.error('Kind donation thank-you delivery failed:', err);
+      }
+    }
   },
 }));
 app.use('/api/corpus_fund_contributions', createResourceRouter({ name: 'corpus_fund_contributions', model: CorpusFundContribution, filterFields: ['donor_id', 'trust_id'], defaultSort: { contribution_date: -1 } }));

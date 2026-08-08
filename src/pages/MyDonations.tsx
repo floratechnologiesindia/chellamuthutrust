@@ -400,7 +400,7 @@ const MyDonations = ({ embedded = false }: { embedded?: boolean }) => {
     try {
       await updateDonation.mutateAsync({
         id: donationId,
-        status: 'PLEDGED', // Using PLEDGED as paused state
+        status: 'PAUSED',
       });
       toast({
         title: "Donation Paused",

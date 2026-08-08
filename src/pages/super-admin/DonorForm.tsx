@@ -17,6 +17,7 @@ import { useActiveDonorCategories } from '@/hooks/useDonorCategories';
 import { useAuth } from '@/contexts/AuthContext';
 import { CredentialsModal } from '@/components/users/CredentialsModal';
 import { toast } from 'sonner';
+import { DONOR_FREQUENCY_OPTIONS, type DonorFrequency } from '@/lib/donorFrequencyConstants';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -67,6 +68,7 @@ const DonorForm = () => {
     working_sector: '' as 'private' | 'govt' | 'others' | '',
     designation: '',
     donor_type: '' as 'indian' | 'nri' | 'foreigner' | '',
+    donor_frequency: '' as DonorFrequency | '',
     religion: '',
     referred_by: ''
   });
@@ -100,6 +102,7 @@ const DonorForm = () => {
         working_sector: (existingDonor.working_sector as 'private' | 'govt' | 'others') || '',
         designation: existingDonor.designation || '',
         donor_type: (existingDonor.donor_type as 'indian' | 'nri' | 'foreigner') || '',
+        donor_frequency: (existingDonor.donor_frequency as DonorFrequency) || '',
         religion: (existingDonor as any).religion || '',
         referred_by: (existingDonor as any).referred_by || ''
       });
@@ -214,6 +217,7 @@ const DonorForm = () => {
             working_sector: formData.working_sector || undefined,
             designation: formData.designation || undefined,
             donor_type: formData.donor_type || undefined,
+            donor_frequency: formData.donor_frequency || undefined,
             religion: formData.religion || undefined,
             referred_by: formData.referred_by || undefined
           }
@@ -423,18 +427,37 @@ const DonorForm = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="donor_type">Donor Type (Optional)</Label>
+                <Label htmlFor="donor_type">Residency Type (Optional)</Label>
                 <Select 
                   value={formData.donor_type} 
                   onValueChange={(value) => handleChange('donor_type', value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select donor type" />
+                    <SelectValue placeholder="Select residency type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="indian">Indian</SelectItem>
                     <SelectItem value="nri">NRI</SelectItem>
                     <SelectItem value="foreigner">Foreigner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="donor_frequency">Donor Type</Label>
+                <Select
+                  value={formData.donor_frequency}
+                  onValueChange={(value) => handleChange('donor_frequency', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select donor type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DONOR_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

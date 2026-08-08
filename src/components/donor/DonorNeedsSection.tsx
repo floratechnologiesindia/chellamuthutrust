@@ -9,9 +9,9 @@ export const DonorNeedsSection = () => (
           <Heart className="h-6 w-6 text-[#ff6633]" />
         </div>
         <div>
-          <h2 className="donor-section-title">Sponsor a Need</h2>
+          <h2 className="donor-section-title">Campaigns</h2>
           <p className="text-sm mt-1" style={{ color: '#666' }}>
-            Filter by category or project, and sponsor a requirement
+            Browse verified campaigns and support the causes that matter to you
           </p>
         </div>
       </div>

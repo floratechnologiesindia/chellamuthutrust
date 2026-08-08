@@ -5,20 +5,28 @@ const uuidField = { type: String, default: uuidv4 };
 const timestamps = { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } };
 
 export interface IKindDonation {
-  _id: string; donor_id?: string; donor_name?: string; trust_id: string; home_id: string; need_id?: string;
+  _id: string; donor_id?: string; donor_name?: string;
+  donor_address?: string; donor_pan?: string; donor_phone?: string; donor_email?: string;
+  donor_frequency?: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
+  trust_id: string; home_id: string; need_id?: string;
   item_type: string; item_description?: string; quantity: number; estimated_value?: number; received_date: string;
   status?: string; delivery_mode?: string;
-  notes?: string; completion_photos?: string[]; completion_notes?: string; report_sent_at?: string; created_at: Date;
+  notes?: string; completion_photos?: string[]; completion_notes?: string;
+  report_sent_at?: string; thank_you_sent_at?: string; receipt_sent_at?: string;
+  created_at: Date;
 }
 
 const kindDonationSchema = new Schema<IKindDonation>({
-  _id: uuidField, donor_id: String, donor_name: String, trust_id: { type: String, required: true }, home_id: { type: String, required: true },
+  _id: uuidField, donor_id: String, donor_name: String,
+  donor_address: String, donor_pan: String, donor_phone: String, donor_email: String,
+  donor_frequency: { type: String, enum: ['MONTHLY', 'ANNUAL', 'ONE_TIME'], default: 'ONE_TIME' },
+  trust_id: { type: String, required: true }, home_id: { type: String, required: true },
   need_id: String, item_type: { type: String, required: true }, item_description: String, quantity: { type: Number, default: 1 },
   estimated_value: Number, received_date: { type: String, required: true },
   status: { type: String, default: 'RECEIVED', index: true },
   delivery_mode: { type: String, default: 'DIRECT' },
   notes: String, completion_photos: [String],
-  completion_notes: String, report_sent_at: String,
+  completion_notes: String, report_sent_at: String, thank_you_sent_at: String, receipt_sent_at: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 export const KindDonation = mongoose.model<IKindDonation>('KindDonation', kindDonationSchema);
@@ -55,6 +63,8 @@ export interface IFoodSlot {
   payment_reminder_sent_at?: string;
   staff_admin_booking_notify_sent_at?: string;
   receipt_thankyou_sent_at?: string;
+  occasion_reminder_sent_at?: string;
+  event_date?: string;
   created_at: Date; updated_at: Date;
 }
 
@@ -76,6 +86,8 @@ const foodSlotSchema = new Schema<IFoodSlot>({
   acknowledgement_sent_at: String, payment_reminder_sent_at: String,
   staff_admin_booking_notify_sent_at: String,
   receipt_thankyou_sent_at: String,
+  occasion_reminder_sent_at: String,
+  event_date: String,
 }, timestamps);
 
 export const FoodSlot = mongoose.model<IFoodSlot>('FoodSlot', foodSlotSchema);

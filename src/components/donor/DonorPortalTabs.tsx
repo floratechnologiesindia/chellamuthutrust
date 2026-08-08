@@ -4,7 +4,7 @@ export type DonorPortalTab = 'food' | 'sponsor' | 'donations' | 'impacts' | 'acc
 
 const TABS: { id: DonorPortalTab; label: string }[] = [
   { id: 'food', label: 'Donate Food' },
-  { id: 'sponsor', label: 'Sponsor a Need' },
+  { id: 'sponsor', label: 'Campaigns' },
   { id: 'donations', label: 'My Donations' },
   { id: 'impacts', label: 'My Impacts' },
   { id: 'account', label: 'My Account' },

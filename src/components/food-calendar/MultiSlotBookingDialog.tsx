@@ -37,6 +37,11 @@ import {
 } from '@/lib/foodSlotConstants';
 import { buildStaffFoodPurpose } from '@/lib/foodSponsorshipPurpose';
 import {
+  appendRefreshmentBookingSlots,
+  canOfferRefreshmentOptIn,
+} from '@/lib/foodRefreshmentOptIn';
+import { FoodRefreshmentOptIn } from '@/components/food-calendar/FoodRefreshmentOptIn';
+import {
   FoodBookingPaymentSection,
   type FoodBookingPaymentState,
 } from '@/components/food-calendar/FoodBookingPaymentSection';
@@ -139,6 +144,7 @@ export function MultiSlotBookingDialog({
   const { uploadChequeImage, uploading: chequeUploading } = useFoodSlotAttachments();
   const [useManualAmount, setUseManualAmount] = useState(false);
   const [manualAmount, setManualAmount] = useState<string>('');
+  const [refreshmentOptIn, setRefreshmentOptIn] = useState<Map<string, boolean>>(new Map());
 
   // Per-slot details (used when different for each)
   const [perSlotDetails, setPerSlotDetails] = useState<Map<string, SlotDetails>>(new Map());
@@ -192,6 +198,7 @@ export function MultiSlotBookingDialog({
       });
       setUseManualAmount(false);
       setManualAmount('');
+      setRefreshmentOptIn(new Map());
       setShowNewDonor(false);
       setNewDonor({ name: '', phone: '', address: '', pan_number: '', aadhar_number: '', email: '' });
       if (preSelectedDonor) {
@@ -205,9 +212,14 @@ export function MultiSlotBookingDialog({
   // Calculate total based on slot pricing
   const calculatedTotal = useMemo(() => {
     return selectedSlots.reduce((sum, slot) => {
-      return sum + (priceMap[slot.timeSlot] ?? 0);
+      let total = sum + (priceMap[slot.timeSlot] ?? 0);
+      const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
+      if (canOfferRefreshmentOptIn(slot.timeSlot) && refreshmentOptIn.get(key)) {
+        total += priceMap.REFRESHMENTS ?? 0;
+      }
+      return total;
     }, 0);
-  }, [selectedSlots, priceMap]);
+  }, [selectedSlots, priceMap, refreshmentOptIn]);
 
   const hasOutsideFoodSlot = useMemo(
     () => selectedSlots.some((slot) => slot.timeSlot === 'OUTSIDE_FOOD'),
@@ -217,6 +229,42 @@ export function MultiSlotBookingDialog({
   const effectiveAmount = useManualAmount && manualAmount
     ? parseFloat(manualAmount) || 0
     : calculatedTotal;
+
+  const refreshmentPrice = priceMap.REFRESHMENTS ?? 30;
+
+  const toggleRefreshmentOptIn = (key: string, checked: boolean) => {
+    setRefreshmentOptIn((prev) => {
+      const next = new Map(prev);
+      if (checked) next.set(key, true);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  const buildSlotsForBooking = (
+    mapped: Array<{
+      date: string;
+      homeId: string;
+      homeName: string;
+      timeSlot: FoodTimeSlot;
+      existingSlotId: string | null;
+      individualDetails?: {
+        reason: string;
+        sponsor_for: string;
+        note: string;
+        donate_on_behalf_of: string | null;
+        meal_type: string | null;
+      };
+    }>,
+  ) =>
+    appendRefreshmentBookingSlots(
+      mapped.map((slot) => ({
+        ...slot,
+        slotAmount: priceMap[slot.timeSlot] ?? 0,
+      })),
+      refreshmentOptIn,
+      refreshmentPrice,
+    );
 
   const buildPurposeForSlot = (
     slot: SelectedSlot,
@@ -420,27 +468,30 @@ export function MultiSlotBookingDialog({
     if (step === 'same') {
       const sharedOccasion = resolveOccasionLabel(occasion, customOccasion);
       bookedSlots = await bulkBookMutation.mutateAsync({
-        slots: selectedSlots.map((slot) => ({
-          date: slot.date,
-          homeId: slot.homeId,
-          timeSlot: slot.timeSlot,
-          existingSlotId: slot.existingSlotId,
-          individualDetails: {
-            reason: purposeEdited
-              ? purpose
-              : buildPurposeForSlot(
-                  slot,
-                  occasion,
-                  customOccasion,
-                  personName,
-                  outsideMealType,
-                ),
-            sponsor_for: sharedOccasion,
-            note: additionalNotes,
-            donate_on_behalf_of: personName || null,
-            meal_type: slot.timeSlot === 'OUTSIDE_FOOD' ? outsideMealType : null,
-          },
-        })),
+        slots: buildSlotsForBooking(
+          selectedSlots.map((slot) => ({
+            date: slot.date,
+            homeId: slot.homeId,
+            homeName: slot.homeName,
+            timeSlot: slot.timeSlot,
+            existingSlotId: slot.existingSlotId,
+            individualDetails: {
+              reason: purposeEdited
+                ? purpose
+                : buildPurposeForSlot(
+                    slot,
+                    occasion,
+                    customOccasion,
+                    personName,
+                    outsideMealType,
+                  ),
+              sponsor_for: sharedOccasion,
+              note: additionalNotes,
+              donate_on_behalf_of: personName || null,
+              meal_type: slot.timeSlot === 'OUTSIDE_FOOD' ? outsideMealType : null,
+            },
+          })),
+        ),
         bookingData: {
           donor_id: effectiveDonorId,
           reason: purpose,
@@ -456,29 +507,32 @@ export function MultiSlotBookingDialog({
       });
     } else {
       bookedSlots = await bulkBookMutation.mutateAsync({
-        slots: selectedSlots.map((slot) => {
-          const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
-          const details = perSlotDetails.get(key);
-          const occasionLabel = details
-            ? resolveOccasionLabel(details.occasion, details.customOccasion)
-            : '';
-          return {
-            date: slot.date,
-            homeId: slot.homeId,
-            timeSlot: slot.timeSlot,
-            existingSlotId: slot.existingSlotId,
-            individualDetails: details
-              ? {
-                  reason: details.purpose,
-                  sponsor_for: occasionLabel,
-                  note: details.additionalNotes,
-                  donate_on_behalf_of: details.personName || null,
-                  meal_type:
-                    slot.timeSlot === 'OUTSIDE_FOOD' ? details.outsideMealType : null,
-                }
-              : undefined,
-          };
-        }),
+        slots: buildSlotsForBooking(
+          selectedSlots.map((slot) => {
+            const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
+            const details = perSlotDetails.get(key);
+            const occasionLabel = details
+              ? resolveOccasionLabel(details.occasion, details.customOccasion)
+              : '';
+            return {
+              date: slot.date,
+              homeId: slot.homeId,
+              homeName: slot.homeName,
+              timeSlot: slot.timeSlot,
+              existingSlotId: slot.existingSlotId,
+              individualDetails: details
+                ? {
+                    reason: details.purpose,
+                    sponsor_for: occasionLabel,
+                    note: details.additionalNotes,
+                    donate_on_behalf_of: details.personName || null,
+                    meal_type:
+                      slot.timeSlot === 'OUTSIDE_FOOD' ? details.outsideMealType : null,
+                  }
+                : undefined,
+            };
+          }),
+        ),
         bookingData: {
           donor_id: effectiveDonorId,
           reason: '',
@@ -921,6 +975,32 @@ export function MultiSlotBookingDialog({
                   )}
                 </div>
 
+                {selectedSlots.some((slot) => canOfferRefreshmentOptIn(slot.timeSlot)) && (
+                  <div className="space-y-3">
+                    <Label>Optional refreshments</Label>
+                    {selectedSlots
+                      .filter((slot) => canOfferRefreshmentOptIn(slot.timeSlot))
+                      .map((slot) => {
+                        const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
+                        return (
+                          <div key={key} className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(slot.date), 'dd MMM yyyy')} · {slot.homeName} ·{' '}
+                              {TIME_SLOT_LABELS[slot.timeSlot]}
+                            </p>
+                            <FoodRefreshmentOptIn
+                              timeSlot={slot.timeSlot}
+                              checked={refreshmentOptIn.get(key) === true}
+                              onCheckedChange={(checked) => toggleRefreshmentOptIn(key, checked)}
+                              price={refreshmentPrice}
+                              idPrefix={key}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
                 <FoodBookingPaymentSection
                   effectiveAmount={effectiveAmount}
                   state={paymentState}
@@ -1105,6 +1185,32 @@ export function MultiSlotBookingDialog({
                     </div>
                   )}
                 </div>
+
+                {selectedSlots.some((slot) => canOfferRefreshmentOptIn(slot.timeSlot)) && (
+                  <div className="space-y-3">
+                    <Label>Optional refreshments</Label>
+                    {selectedSlots
+                      .filter((slot) => canOfferRefreshmentOptIn(slot.timeSlot))
+                      .map((slot) => {
+                        const key = `${slot.date}-${slot.homeId}-${slot.timeSlot}`;
+                        return (
+                          <div key={key} className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(slot.date), 'dd MMM yyyy')} · {slot.homeName} ·{' '}
+                              {TIME_SLOT_LABELS[slot.timeSlot]}
+                            </p>
+                            <FoodRefreshmentOptIn
+                              timeSlot={slot.timeSlot}
+                              checked={refreshmentOptIn.get(key) === true}
+                              onCheckedChange={(checked) => toggleRefreshmentOptIn(key, checked)}
+                              price={refreshmentPrice}
+                              idPrefix={`diff-${key}`}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
 
                 <FoodBookingPaymentSection
                   effectiveAmount={effectiveAmount}

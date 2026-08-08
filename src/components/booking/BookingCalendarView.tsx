@@ -14,6 +14,7 @@ import { useFoodSlots, useSponsorFoodSlot, FoodSlot, FoodTimeSlot } from '@/hook
 import { useCreateDonation } from '@/hooks/useDonations';
 import { FoodCalendarGrid } from '@/components/food-calendar/FoodCalendarGrid';
 import { FoodSlotLegend } from '@/components/food-calendar/FoodSlotLegend';
+import { STAFF_FOOD_CALENDAR_SLOTS } from '@/lib/foodSlotConstants';
 import { format, isSameDay, isBefore, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -237,6 +238,7 @@ export const BookingCalendarView = ({
               currentDate={currentMonth}
               slots={foodSlots}
               onSlotClick={handleSlotClick}
+              visibleTimeSlots={STAFF_FOOD_CALENDAR_SLOTS}
             />
             <p className="text-sm text-muted-foreground text-center">
               Click on a yellow (REQUIREMENT) slot to book it for {donor.name}

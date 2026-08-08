@@ -87,6 +87,7 @@ export const DonorFoodCalendarSection = () => {
           reason: req.reason,
           sponsor_for: req.sponsor_for,
           donate_on_behalf_of: req.donate_on_behalf_of,
+          include_refreshment: req.include_refreshment,
         },
         donorName: req.donorName,
         donorEmail: req.donorEmail,
@@ -238,6 +239,7 @@ export const DonorFoodCalendarSection = () => {
           homeId={selectedHomeId || ''}
           trustId={selectedHome?.trust_id || ''}
           homeName={selectedHome?.name || ''}
+          homeSlots={slots}
           onRazorpayFoodPayment={handleRazorpayFoodPayment}
           razorpayProcessing={razorpayProcessing}
         />

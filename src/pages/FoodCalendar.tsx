@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { FoodCalendarGrid } from '@/components/food-calendar/FoodCalendarGrid';
 import { FoodSlotLegend } from '@/components/food-calendar/FoodSlotLegend';
+import { STAFF_FOOD_CALENDAR_SLOTS } from '@/lib/foodSlotConstants';
 import { FoodSlotDetailPanel } from '@/components/food-calendar/FoodSlotDetailPanel';
 import { useFoodSlots, FoodSlot, FoodTimeSlot } from '@/hooks/useFoodSlots';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -220,6 +221,7 @@ export default function FoodCalendar() {
             slots={slots}
             onSlotClick={handleSlotClick}
             compact={isMobile}
+            visibleTimeSlots={STAFF_FOOD_CALENDAR_SLOTS}
           />
         ) : (
           <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-lg">

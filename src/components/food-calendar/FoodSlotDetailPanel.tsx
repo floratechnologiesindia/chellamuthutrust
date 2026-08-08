@@ -52,6 +52,7 @@ interface FoodSlotDetailPanelProps {
   homeName: string;
   onRazorpayFoodPayment?: (request: FoodSlotRazorpayPayRequest) => void;
   razorpayProcessing?: boolean;
+  homeSlots?: FoodSlotWithDonor[];
 }
 
 const slotLabels: Record<FoodTimeSlot, { label: string; icon: React.ReactNode }> = {
@@ -99,6 +100,7 @@ export function FoodSlotDetailPanel({
   homeName,
   onRazorpayFoodPayment,
   razorpayProcessing,
+  homeSlots = [],
 }: FoodSlotDetailPanelProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -375,6 +377,7 @@ export function FoodSlotDetailPanel({
               onFinished={() => onOpenChange(false)}
               onRazorpayPay={onRazorpayFoodPayment}
               razorpayProcessing={razorpayProcessing}
+              homeSlots={homeSlots}
             />
           )}
 

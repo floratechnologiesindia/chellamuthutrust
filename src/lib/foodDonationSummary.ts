@@ -108,10 +108,27 @@ export function formatFoodPaymentBreakup(params: {
   dateLabel: string;
   timeSlot?: FoodTimeSlot;
   outsideMealType?: OutsideMealType;
+  mealAmount?: number;
+  refreshmentAmount?: number;
 }): { label: string; amount: number }[] {
-  const label =
+  const mealLine =
     params.timeSlot === 'OUTSIDE_FOOD' && params.outsideMealType
       ? `${params.slotLabel} (${params.outsideMealType}) meal sponsorship · ${params.homeName} · ${params.dateLabel}`
       : `${params.slotLabel} meal sponsorship · ${params.homeName} · ${params.dateLabel}`;
-  return [{ label, amount: params.amount }];
+
+  if (params.refreshmentAmount && params.refreshmentAmount > 0) {
+    const meal = params.mealAmount ?? params.amount - params.refreshmentAmount;
+    const refreshmentLabel =
+      params.timeSlot === 'MORNING'
+        ? 'Refreshments with breakfast'
+        : params.timeSlot === 'AFTERNOON'
+          ? 'Refreshments with lunch'
+          : 'Refreshments';
+    return [
+      { label: mealLine, amount: meal },
+      { label: `${refreshmentLabel} · ${params.homeName} · ${params.dateLabel}`, amount: params.refreshmentAmount },
+    ];
+  }
+
+  return [{ label: mealLine, amount: params.amount }];
 }

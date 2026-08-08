@@ -24,4 +24,5 @@ export interface FoodSlotRazorpayPayRequest {
   reason?: string;
   sponsor_for?: string;
   donate_on_behalf_of?: string;
+  include_refreshment?: boolean;
 }

@@ -39,6 +39,7 @@ export interface ManualFoodSlotPaymentInput {
   reason?: string;
   sponsor_for?: string;
   donate_on_behalf_of?: string;
+  include_refreshment?: boolean;
 }
 
 export function useManualFoodSlotPayment() {

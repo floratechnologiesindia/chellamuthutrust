@@ -29,6 +29,7 @@ export interface FoodSlotPaymentContext {
   reason?: string;
   sponsor_for?: string;
   donate_on_behalf_of?: string;
+  include_refreshment?: boolean;
 }
 
 interface PaymentParams {
@@ -110,6 +111,7 @@ export function useRazorpay() {
             reason: foodSlot?.reason,
             sponsor_for: foodSlot?.sponsor_for,
             donate_on_behalf_of: foodSlot?.donate_on_behalf_of,
+            include_refreshment: foodSlot?.include_refreshment ? 'true' : '',
           },
         },
       );
@@ -175,6 +177,7 @@ export function useRazorpay() {
                   reason: foodSlot?.reason,
                   sponsor_for: foodSlot?.sponsor_for,
                   donate_on_behalf_of: foodSlot?.donate_on_behalf_of,
+                  include_refreshment: foodSlot?.include_refreshment ? 'true' : '',
                 },
               },
             );

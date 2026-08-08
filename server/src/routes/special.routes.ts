@@ -390,6 +390,7 @@ router.post('/manual/complete-food-slot', authenticate, asyncHandler(async (req:
     reason,
     sponsor_for,
     donate_on_behalf_of,
+    include_refreshment: includeRefreshment,
   } = req.body;
   if (req.user?.role === 'warden') {
     await assertWardenCanAccessHome(req, homeId);
@@ -411,6 +412,7 @@ router.post('/manual/complete-food-slot', authenticate, asyncHandler(async (req:
     reason,
     sponsor_for,
     donate_on_behalf_of,
+    include_refreshment: includeRefreshment === true,
   });
   res.json(result);
 }));
@@ -944,6 +946,79 @@ router.get(
     const { listPendingFoodEventMedia } = await import('../services/foodEventMedia.service.js');
     const items = await listPendingFoodEventMedia(trustId);
     res.json({ items, count: items.length });
+  }),
+);
+
+router.get(
+  '/donations/:id/payment-history',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { listDonationPaymentHistory } = await import('../services/recurringDonation.service.js');
+    const history = await listDonationPaymentHistory(req.params.id);
+    res.json(history);
+  }),
+);
+
+router.patch(
+  '/donations/:id/recurring-status',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { status } = req.body as { status?: string };
+    if (!status || !['ACTIVE', 'PAUSED', 'CANCELLED', 'COMPLETED'].includes(status)) {
+      return res.status(400).json({ error: 'status must be ACTIVE, PAUSED, CANCELLED, or COMPLETED' });
+    }
+    const isStaff = ['warden', 'admin', 'super_admin'].includes(req.user?.role || '');
+    const { updateRecurringDonationStatus } = await import('../services/recurringDonation.service.js');
+    const updated = await updateRecurringDonationStatus(req.params.id, status as 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED', {
+      isStaff,
+      donorId: req.userId,
+    });
+    res.json(updated);
+  }),
+);
+
+router.get(
+  '/kind-donations/:id/thank-you-documents',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { getKindDonationThankYouDocuments } = await import('../services/kindDonationThankYou.service.js');
+    const docs = await getKindDonationThankYouDocuments(req.params.id);
+    res.json(docs);
+  }),
+);
+
+router.post(
+  '/kind-donations/:id/send-thank-you',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { force } = req.body as { force?: boolean };
+    const { deliverKindDonationThankYou } = await import('../services/kindDonationThankYou.service.js');
+    const result = await deliverKindDonationThankYou(req.params.id, { force: force === true });
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/food-slots/:id/send-occasion-reminder',
+  authenticate,
+  authorize('warden', 'admin', 'super_admin'),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { force } = req.body as { force?: boolean };
+    const { sendOccasionReminderForFoodSlot } = await import('../services/occasionReminder.service.js');
+    const result = await sendOccasionReminderForFoodSlot(req.params.id, { force: force === true });
+    res.json(result);
+  }),
+);
+
+router.post(
+  '/occasion-reminders/run',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const { runOccasionReminders } = await import('../services/occasionReminder.service.js');
+    const result = await runOccasionReminders();
+    res.json(result);
   }),
 );
 

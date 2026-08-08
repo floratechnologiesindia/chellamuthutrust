@@ -53,14 +53,40 @@ export async function dedupeFoodSlotCell(
   date: string,
   timeSlot: string,
   keepId: string,
+  mealType?: string | null,
 ): Promise<number> {
-  const result = await FoodSlot.deleteMany({
+  const query: Record<string, unknown> = {
     home_id: homeId,
     date,
     time_slot: timeSlot,
     _id: { $ne: keepId },
-  });
+  };
+
+  if (timeSlot === 'REFRESHMENTS' || timeSlot === 'OUTSIDE_FOOD') {
+    const mt = mealType?.trim();
+    if (mt) {
+      query.meal_type = mt;
+    } else {
+      query.$or = [{ meal_type: { $exists: false } }, { meal_type: null }, { meal_type: '' }];
+    }
+  }
+
+  const result = await FoodSlot.deleteMany(query);
   return result.deletedCount ?? 0;
+}
+
+export function siblingQueryForCell(
+  homeId: string,
+  date: string,
+  timeSlot: string,
+  mealType?: string | null,
+) {
+  const query: Record<string, unknown> = { home_id: homeId, date, time_slot: timeSlot };
+  if (timeSlot === 'REFRESHMENTS' || timeSlot === 'OUTSIDE_FOOD') {
+    const mt = mealType?.trim();
+    if (mt) query.meal_type = mt;
+  }
+  return query;
 }
 
 /** Apply donor payment to an already-booked slot (pay-later confirmation flow). */
@@ -105,7 +131,7 @@ export async function applyDonorFoodSlotPayment(
   else if (!slot.payment_mode.includes('online')) slot.payment_mode = `${slot.payment_mode}, online`;
 
   await slot.save();
-  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id);
+  await dedupeFoodSlotCell(slot.home_id, slot.date, slot.time_slot, slot._id, slot.meal_type);
   return slot;
 }
 
@@ -133,6 +159,12 @@ export function applyDonorFoodBookingMetadata(
   if (params.timeSlot === 'OUTSIDE_FOOD') {
     if (!params.mealType?.trim()) {
       throw new AppError('Meal type is required for Outside Food sponsorship', 400);
+    }
+    slot.meal_type = params.mealType.trim();
+  }
+  if (params.timeSlot === 'REFRESHMENTS') {
+    if (!params.mealType?.trim()) {
+      throw new AppError('Meal pairing is required for refreshments sponsorship', 400);
     }
     slot.meal_type = params.mealType.trim();
   }
@@ -174,7 +206,7 @@ export async function bookSlotOnPayment(params: {
     donateOnBehalfOf,
   } = params;
 
-  const siblings = await FoodSlot.find({ home_id: homeId, date, time_slot: timeSlot });
+  const siblings = await FoodSlot.find(siblingQueryForCell(homeId, date, timeSlot, mealType));
   const bookedByOther = siblings.find((s) => slotIsBooked(s) && s.donor_id && s.donor_id !== donorId);
   if (bookedByOther) {
     throw new AppError('This slot is already booked by another donor', 409);
@@ -220,7 +252,7 @@ export async function bookSlotOnPayment(params: {
     donateOnBehalfOf,
   });
   await slot.save();
-  await dedupeFoodSlotCell(homeId, date, timeSlot, slot._id);
+  await dedupeFoodSlotCell(homeId, date, timeSlot, slot._id, slot.meal_type);
 
   try {
     const { sendFoodSponsorshipAcknowledgement } = await import('./foodSponsorshipAcknowledgement.service.js');
@@ -230,6 +262,29 @@ export async function bookSlotOnPayment(params: {
   }
 
   return slot;
+}
+
+/** Book refreshments paired with breakfast or lunch (opt-in at payment). */
+export async function bookRefreshmentSlotOnPayment(
+  params: Omit<Parameters<typeof bookSlotOnPayment>[0], 'timeSlot' | 'foodSlotId'> & {
+    refreshmentMealType: 'Breakfast' | 'Lunch';
+  },
+): Promise<IFoodSlot> {
+  const { refreshmentMealType, reason, ...rest } = params;
+  return bookSlotOnPayment({
+    ...rest,
+    timeSlot: 'REFRESHMENTS',
+    mealType: refreshmentMealType,
+    reason: reason?.trim()
+      ? `${reason.trim()} (refreshments with ${refreshmentMealType.toLowerCase()})`
+      : `Refreshments with ${refreshmentMealType.toLowerCase()}`,
+  });
+}
+
+export async function getRefreshmentSlotPrice(): Promise<number> {
+  const { FoodSlotPricing } = await import('../models/Finance.js');
+  const pricing = await FoodSlotPricing.findOne({ time_slot: 'REFRESHMENTS', is_active: true }).lean();
+  return Number(pricing?.price ?? 30);
 }
 
 function normalizeFoodSlotBody(body: Record<string, unknown>): Record<string, unknown> {
@@ -254,7 +309,8 @@ export async function bookOrUpdateFoodSlot(body: Record<string, unknown>): Promi
     return FoodSlot.create(payload) as Promise<IFoodSlot>;
   }
 
-  const siblings = await FoodSlot.find({ home_id: homeId, date, time_slot: timeSlot });
+  const mealType = payload.meal_type != null ? String(payload.meal_type) : undefined;
+  const siblings = await FoodSlot.find(siblingQueryForCell(homeId, date, timeSlot, mealType));
   const bookedByOther = siblings.find(
     (s) => slotIsBooked(s) && s.donor_id && payload.donor_id && s.donor_id !== payload.donor_id,
   );
@@ -266,7 +322,7 @@ export async function bookOrUpdateFoodSlot(body: Record<string, unknown>): Promi
   if (canonical) {
     Object.assign(canonical, payload);
     await canonical.save();
-    await dedupeFoodSlotCell(homeId, date, timeSlot, canonical._id);
+    await dedupeFoodSlotCell(homeId, date, timeSlot, canonical._id, canonical.meal_type);
     return canonical;
   }
 
@@ -287,7 +343,7 @@ export async function dedupeAllFoodSlots(): Promise<{ cells: number; removed: nu
     const slots = await FoodSlot.find({ home_id, date, time_slot });
     const keep = pickCanonicalFoodSlot(slots);
     if (!keep) continue;
-    removed += await dedupeFoodSlotCell(home_id, date, time_slot, keep._id);
+    removed += await dedupeFoodSlotCell(home_id, date, time_slot, keep._id, keep.meal_type);
   }
 
   return { cells: groups.length, removed };

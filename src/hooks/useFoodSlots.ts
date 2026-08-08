@@ -404,6 +404,7 @@ export interface BulkBookFoodSlotsParams {
     homeId: string;
     timeSlot: FoodTimeSlot;
     existingSlotId: string | null;
+    slotAmount?: number;
     individualDetails?: SlotIndividualDetails;
   }>;
   bookingData: {
@@ -455,11 +456,11 @@ export function useBulkBookFoodSlots() {
             };
 
         const slotMealType =
-          slot.timeSlot === 'OUTSIDE_FOOD'
+          slot.timeSlot === 'OUTSIDE_FOOD' || slot.timeSlot === 'REFRESHMENTS'
             ? slotBookingData.meal_type || null
             : null;
 
-        const slotAmount = bookingData.amount / slots.length;
+        const slotAmount = slot.slotAmount ?? bookingData.amount / slots.length;
         const slotAmountPaid =
           bookingData.amount_paid != null
             ? bookingData.amount_paid / slots.length

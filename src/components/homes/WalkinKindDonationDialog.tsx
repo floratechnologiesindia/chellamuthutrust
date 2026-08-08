@@ -14,6 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { useCreateKindDonation } from '@/hooks/useKindDonations';
 import { GenerateInvoiceDialog } from './GenerateInvoiceDialog';
+import {
+  DonorClassificationFields,
+  emptyDonorClassification,
+  type DonorClassificationValues,
+} from '@/components/donor/DonorClassificationFields';
 import type { InvoiceData } from './InvoicePreview';
 
 const ITEM_TYPES = [
@@ -47,9 +52,10 @@ export function WalkinKindDonationDialog({
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceData, setInvoiceData] = useState<Omit<InvoiceData, 'receiptNumber'> | null>(null);
 
+  const [donorInfo, setDonorInfo] = useState<DonorClassificationValues>(emptyDonorClassification());
+
   const [formData, setFormData] = useState({
     donor_name: '',
-    donor_phone: '',
     item_type: '',
     item_description: '',
     quantity: '1',
@@ -58,9 +64,9 @@ export function WalkinKindDonationDialog({
   });
 
   const resetForm = () => {
+    setDonorInfo(emptyDonorClassification());
     setFormData({
       donor_name: '',
-      donor_phone: '',
       item_type: '',
       item_description: '',
       quantity: '1',
@@ -80,7 +86,12 @@ export function WalkinKindDonationDialog({
       await createMutation.mutateAsync({
         trust_id: trustId,
         home_id: homeId,
-        donor_name: formData.donor_name || 'Walk-in Donor',
+        donor_name: donorInfo.donor_name || formData.donor_name || 'Walk-in Donor',
+        donor_address: donorInfo.donor_address || null,
+        donor_pan: donorInfo.donor_pan || null,
+        donor_phone: donorInfo.donor_phone || null,
+        donor_email: donorInfo.donor_email || null,
+        donor_frequency: donorInfo.donor_frequency,
         item_type: formData.item_type,
         item_description: formData.item_description || null,
         quantity: formData.quantity ? parseInt(formData.quantity) : 1,
@@ -97,8 +108,10 @@ export function WalkinKindDonationDialog({
       const estValue = formData.estimated_value ? parseFloat(formData.estimated_value) : 0;
       setInvoiceData({
         date: format(new Date(), 'yyyy-MM-dd'),
-        donorName: formData.donor_name || 'Walk-in Donor',
-        donorPhone: formData.donor_phone || undefined,
+        donorName: donorInfo.donor_name || formData.donor_name || 'Walk-in Donor',
+        donorPhone: donorInfo.donor_phone || undefined,
+        donorAddress: donorInfo.donor_address || undefined,
+        panNumber: donorInfo.donor_pan || undefined,
         description: `${formData.item_type}${formData.item_description ? ' - ' + formData.item_description : ''} (Qty: ${formData.quantity || 1})`,
         amount: estValue,
         homeName,
@@ -121,24 +134,18 @@ export function WalkinKindDonationDialog({
             <DialogTitle>Accept Walk-in Kind Donation</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Donor Name</Label>
-                <Input
-                  value={formData.donor_name}
-                  onChange={(e) => setFormData({ ...formData, donor_name: e.target.value })}
-                  placeholder="Donor name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Donor Phone</Label>
-                <Input
-                  value={formData.donor_phone}
-                  onChange={(e) => setFormData({ ...formData, donor_phone: e.target.value })}
-                  placeholder="Phone number"
-                />
-              </div>
-            </div>
+            <DonorClassificationFields
+              values={{
+                ...donorInfo,
+                donor_name: donorInfo.donor_name || formData.donor_name,
+              }}
+              onChange={(patch) => {
+                setDonorInfo((prev) => ({ ...prev, ...patch }));
+                if (patch.donor_name !== undefined) {
+                  setFormData((prev) => ({ ...prev, donor_name: patch.donor_name || '' }));
+                }
+              }}
+            />
             <div className="space-y-2">
               <Label>Item Type *</Label>
               <Select value={formData.item_type} onValueChange={(v) => setFormData({ ...formData, item_type: v })}>

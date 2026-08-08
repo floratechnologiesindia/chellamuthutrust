@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { DonorFrequency } from '@/lib/donorFrequencyConstants';
 
 export interface KindDonation {
   id: string;
@@ -7,6 +8,11 @@ export interface KindDonation {
   home_id: string;
   donor_id: string | null;
   donor_name: string | null;
+  donor_address?: string | null;
+  donor_pan?: string | null;
+  donor_phone?: string | null;
+  donor_email?: string | null;
+  donor_frequency?: DonorFrequency | null;
   item_type: string;
   item_description: string | null;
   quantity: number | null;
@@ -90,6 +96,11 @@ export interface CreateKindDonationParams {
   need_id?: string | null;
   donor_id?: string | null;
   donor_name?: string | null;
+  donor_address?: string | null;
+  donor_pan?: string | null;
+  donor_phone?: string | null;
+  donor_email?: string | null;
+  donor_frequency?: DonorFrequency | null;
   item_type: string;
   item_description?: string | null;
   quantity?: number | null;

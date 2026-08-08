@@ -1,4 +1,4 @@
-import { FoodRecurringPledge, type FoodRecurringFrequency, type IFoodRecurringPledge } from '../models/Finance.js';
+import { FoodRecurringPledge, FoodSlot, type FoodRecurringFrequency, type IFoodRecurringPledge } from '../models/Finance.js';
 import { Home } from '../models/Core.js';
 import { User } from '../models/User.js';
 import { Notification } from '../models/Operations.js';
@@ -261,6 +261,54 @@ export function parseFoodRecurringFrequency(value: unknown): FoodRecurringFreque
   const v = String(value || '').toLowerCase().trim();
   if (v === 'monthly' || v === 'annual') return v;
   return null;
+}
+
+/** When a pledge is due, pre-book the next cycle slot for the donor (payment pending). */
+export async function processFoodRecurringSchedules() {
+  const today = new Date().toISOString().slice(0, 10);
+  const pledges = await FoodRecurringPledge.find({
+    status: 'ACTIVE',
+    next_due_date: { $lte: today },
+  });
+
+  let created = 0;
+  for (const pledge of pledges) {
+    if (!pledge.next_due_date) continue;
+
+    const existing = await FoodSlot.findOne({
+      donor_id: pledge.donor_id,
+      home_id: pledge.home_id,
+      date: pledge.next_due_date,
+      time_slot: pledge.time_slot,
+      status: 'BOOKED',
+    }).lean();
+
+    if (!existing) {
+      await FoodSlot.create({
+        home_id: pledge.home_id,
+        trust_id: pledge.trust_id,
+        donor_id: pledge.donor_id,
+        donor_name: pledge.donor_name,
+        date: pledge.next_due_date,
+        time_slot: pledge.time_slot,
+        amount: pledge.amount,
+        status: 'BOOKED',
+        payment_status: 'FULLY_PENDING',
+        occasion_type: pledge.occasion_type,
+        occasion_note: pledge.occasion_note,
+        sponsor_for: pledge.donation_for,
+        event_date: pledge.event_date,
+        reason: `Recurring ${pledge.frequency} sponsorship`,
+      });
+      created += 1;
+    }
+
+    pledge.last_paid_date = pledge.next_due_date;
+    pledge.next_due_date = nextSameDayOfMonthDate(pledge.next_due_date, pledge.frequency);
+    await pledge.save();
+  }
+
+  return { created };
 }
 
 export type { IFoodRecurringPledge };

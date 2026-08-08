@@ -135,10 +135,15 @@ export function mergeFoodSlotsByCell<T extends {
   time_slot: FoodTimeSlot;
   status: FoodSlotStatus | string;
   payment_status?: string | null;
+  meal_type?: string | null;
 }>(slots: T[]): T[] {
   const map = new Map<string, T>();
   for (const slot of slots) {
-    const key = `${slot.date}-${slot.home_id}-${slot.time_slot}`;
+    const mealSuffix =
+      (slot.time_slot === 'REFRESHMENTS' || slot.time_slot === 'OUTSIDE_FOOD') && slot.meal_type
+        ? `-${slot.meal_type}`
+        : '';
+    const key = `${slot.date}-${slot.home_id}-${slot.time_slot}${mealSuffix}`;
     const existing = map.get(key);
     const candidate = { ...slot, status: normalizeFoodSlotStatus(slot.status) as FoodSlotStatus };
     if (!existing) {
