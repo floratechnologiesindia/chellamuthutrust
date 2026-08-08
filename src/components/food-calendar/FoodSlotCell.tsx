@@ -1,6 +1,8 @@
 import { FOOD_TIME_SLOTS, type FoodTimeSlot } from '@/lib/foodSlotConstants';
 import { FoodSlotBadge } from './FoodSlotBadge';
 import { FoodSlot, FoodTimeSlot, FoodSlotStatus, FoodSlotWithDonor } from '@/hooks/useFoodSlots';
+import { pickFoodSlotForTimeSlot, normalizeFoodSlotStatus } from '@/lib/foodSlotUtils';
+import { cn } from '@/lib/utils';
 
 interface FoodSlotCellProps {
   date: Date;
